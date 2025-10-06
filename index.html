@@ -1,0 +1,709 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard HOPAN - Análise de Comissões</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary: #007AFF;
+            --secondary: #5856D6;
+            --success: #34C759;
+            --warning: #FF9500;
+            --danger: #FF3B30;
+            --bg-primary: #000000;
+            --bg-secondary: #1C1C1E;
+            --bg-tertiary: #2C2C2E;
+            --text-primary: #FFFFFF;
+            --text-secondary: #8E8E93;
+            --border: #38383A;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 40px;
+            padding: 30px 0;
+            border-bottom: 1px solid var(--border);
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 10px;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .subtitle {
+            color: var(--text-secondary);
+            font-size: 1.1rem;
+        }
+
+        .kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 40px;
+        }
+
+        .kpi-card {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 24px;
+            transition: all 0.3s ease;
+        }
+
+        .kpi-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 8px 24px rgba(0, 122, 255, 0.2);
+            border-color: var(--primary);
+        }
+
+        .kpi-label {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .kpi-value {
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        .section {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 30px;
+            margin-bottom: 30px;
+        }
+
+        .section-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .section-title::before {
+            content: '';
+            width: 4px;
+            height: 24px;
+            background: linear-gradient(180deg, var(--primary), var(--secondary));
+            border-radius: 2px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+
+        thead {
+            background: var(--bg-tertiary);
+        }
+
+        th, td {
+            padding: 16px;
+            text-align: left;
+            border-bottom: 1px solid var(--border);
+        }
+
+        th {
+            font-weight: 600;
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        tr:hover {
+            background: var(--bg-tertiary);
+        }
+
+        .chart-container {
+            position: relative;
+            height: 400px;
+            margin: 20px 0;
+        }
+
+        .controls {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            margin-bottom: 20px;
+        }
+
+        select, button {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 12px 20px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        select:hover, button:hover {
+            background: var(--bg-secondary);
+            border-color: var(--primary);
+        }
+
+        button {
+            background: var(--primary);
+            border: none;
+            font-weight: 600;
+        }
+
+        button:hover {
+            background: #0051D5;
+            transform: translateY(-2px);
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+
+        .badge-success { background: rgba(52, 199, 89, 0.2); color: var(--success); }
+        .badge-warning { background: rgba(255, 149, 0, 0.2); color: var(--warning); }
+        .badge-danger { background: rgba(255, 59, 48, 0.2); color: var(--danger); }
+
+        .pivot-table-container {
+            overflow-x: auto;
+        }
+
+        .pivot-table {
+            min-width: 600px;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: var(--text-secondary);
+        }
+
+        .spinner {
+            border: 3px solid var(--border);
+            border-top: 3px solid var(--primary);
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .distribution-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        .distribution-card {
+            background: var(--bg-tertiary);
+            border-radius: 12px;
+            padding: 20px;
+        }
+
+        .distribution-card h4 {
+            margin-bottom: 15px;
+            color: var(--primary);
+        }
+
+        .stat-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .stat-label {
+            color: var(--text-secondary);
+        }
+
+        .stat-value {
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Dashboard HOPAN</h1>
+            <p class="subtitle">Análise de Comissões e Atrasos - Setembro 2025</p>
+        </header>
+
+        <div id="loading" class="loading">
+            <div class="spinner"></div>
+            <p>Carregando dados...</p>
+        </div>
+
+        <div id="content" style="display: none;">
+            <!-- KPIs Principais -->
+            <div class="kpi-grid" id="kpiGrid"></div>
+
+            <!-- Seção 1: Análise por Faixa de Atraso -->
+            <div class="section">
+                <h2 class="section-title">Análise por Faixa de Atraso</h2>
+                <div class="chart-container">
+                    <canvas id="faixasChart"></canvas>
+                </div>
+                <div id="faixasTable"></div>
+            </div>
+
+            <!-- Seção 2: Tabela Dinâmica -->
+            <div class="section">
+                <h2 class="section-title">Tabela Dinâmica Configurável</h2>
+                <div class="controls">
+                    <div>
+                        <label style="display: block; margin-bottom: 5px; color: var(--text-secondary);">Linha:</label>
+                        <select id="pivotRow"></select>
+                    </div>
+                    <div>
+                        <label style="display: block; margin-bottom: 5px; color: var(--text-secondary);">Coluna:</label>
+                        <select id="pivotCol"></select>
+                    </div>
+                    <div>
+                        <label style="display: block; margin-bottom: 5px; color: var(--text-secondary);">Valor:</label>
+                        <select id="pivotValue"></select>
+                    </div>
+                    <div>
+                        <label style="display: block; margin-bottom: 5px; color: var(--text-secondary);">Agregação:</label>
+                        <select id="pivotAgg">
+                            <option value="sum">Soma</option>
+                            <option value="avg">Média</option>
+                            <option value="count">Contagem</option>
+                            <option value="min">Mínimo</option>
+                            <option value="max">Máximo</option>
+                        </select>
+                    </div>
+                    <div style="align-self: flex-end;">
+                        <button onclick="updatePivotTable()">Atualizar Tabela</button>
+                    </div>
+                </div>
+                <div class="pivot-table-container" id="pivotTableContainer"></div>
+            </div>
+
+            <!-- Seção 3: Distribuição Normal de Comissões -->
+            <div class="section">
+                <h2 class="section-title">Distribuição de % Comissão por Faixa</h2>
+                <div class="chart-container">
+                    <canvas id="distributionChart"></canvas>
+                </div>
+                <div class="distribution-grid" id="distributionStats"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let dashboardData = null;
+
+        // Carregar dados
+        async function loadData() {
+            try {
+                const response = await fetch('dashboard_data.json');
+                dashboardData = await response.json();
+                initializeDashboard();
+            } catch (error) {
+                console.error('Erro ao carregar dados:', error);
+                document.getElementById('loading').innerHTML = '<p style="color: var(--danger);">Erro ao carregar dados. Verifique o console.</p>';
+            }
+        }
+
+        function formatCurrency(value) {
+            return new Intl.NumberFormat('pt-BR', { 
+                style: 'currency', 
+                currency: 'BRL' 
+            }).format(value);
+        }
+
+        function formatPercent(value) {
+            return value.toFixed(2) + '%';
+        }
+
+        function formatNumber(value) {
+            return new Intl.NumberFormat('pt-BR').format(value);
+        }
+
+        function initializeDashboard() {
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('content').style.display = 'block';
+
+            renderKPIs();
+            renderFaixasAnalysis();
+            initializePivotTable();
+            renderDistributionAnalysis();
+        }
+
+        function renderKPIs() {
+            const meta = dashboardData.metadados;
+            const kpis = [
+                { label: 'Total de Operações', value: formatNumber(meta.total_operacoes), color: 'var(--primary)' },
+                { label: 'Valor Total Pago', value: formatCurrency(meta.total_geral_pago), color: 'var(--success)' },
+                { label: 'Total Comissões', value: formatCurrency(meta.total_geral_comissao), color: 'var(--warning)' },
+                { label: '% Comissão Geral', value: formatPercent(meta.perc_comissao_geral), color: 'var(--secondary)' }
+            ];
+
+            const grid = document.getElementById('kpiGrid');
+            grid.innerHTML = kpis.map(kpi => `
+                <div class="kpi-card">
+                    <div class="kpi-label">${kpi.label}</div>
+                    <div class="kpi-value" style="color: ${kpi.color}">${kpi.value}</div>
+                </div>
+            `).join('');
+        }
+
+        function renderFaixasAnalysis() {
+            const faixas = dashboardData.analise_faixas;
+            
+            // Gráfico
+            const ctx = document.getElementById('faixasChart').getContext('2d');
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: faixas.map(f => f.faixa),
+                    datasets: [
+                        {
+                            label: 'Total Pago (R$)',
+                            data: faixas.map(f => f.total_pago),
+                            backgroundColor: 'rgba(0, 122, 255, 0.7)',
+                            yAxisID: 'y'
+                        },
+                        {
+                            label: 'Total Comissão (R$)',
+                            data: faixas.map(f => f.total_comissao),
+                            backgroundColor: 'rgba(255, 149, 0, 0.7)',
+                            yAxisID: 'y'
+                        },
+                        {
+                            label: '% Comissão',
+                            data: faixas.map(f => f.perc_comissao_medio),
+                            type: 'line',
+                            borderColor: 'rgba(52, 199, 89, 1)',
+                            backgroundColor: 'rgba(52, 199, 89, 0.2)',
+                            yAxisID: 'y1'
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: {
+                        mode: 'index',
+                        intersect: false
+                    },
+                    plugins: {
+                        legend: {
+                            labels: { color: '#FFFFFF' }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            type: 'linear',
+                            position: 'left',
+                            ticks: { color: '#8E8E93' },
+                            grid: { color: '#38383A' }
+                        },
+                        y1: {
+                            type: 'linear',
+                            position: 'right',
+                            ticks: { color: '#8E8E93' },
+                            grid: { display: false }
+                        },
+                        x: {
+                            ticks: { color: '#8E8E93' },
+                            grid: { color: '#38383A' }
+                        }
+                    }
+                }
+            });
+
+            // Tabela
+            const tableHTML = `
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Faixa de Atraso</th>
+                            <th>Operações</th>
+                            <th>Total Pago</th>
+                            <th>Total Comissão</th>
+                            <th>% Comissão</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${faixas.map(f => `
+                            <tr>
+                                <td><span class="badge ${getBadgeClass(f.faixa)}">${f.faixa}</span></td>
+                                <td>${formatNumber(f.total_operacoes)}</td>
+                                <td>${formatCurrency(f.total_pago)}</td>
+                                <td>${formatCurrency(f.total_comissao)}</td>
+                                <td>${formatPercent(f.perc_comissao_medio)}</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            `;
+            document.getElementById('faixasTable').innerHTML = tableHTML;
+        }
+
+        function getBadgeClass(faixa) {
+            if (faixa.includes('0-20')) return 'badge-success';
+            if (faixa.includes('21-30') || faixa.includes('31-60')) return 'badge-warning';
+            return 'badge-danger';
+        }
+
+        function initializePivotTable() {
+            const campos = dashboardData.metadados.campos_disponiveis;
+            const camposNumericos = dashboardData.metadados.campos_numericos;
+            const camposCategoricos = dashboardData.metadados.campos_categoricos;
+
+            // Preencher selects
+            const rowSelect = document.getElementById('pivotRow');
+            const colSelect = document.getElementById('pivotCol');
+            const valueSelect = document.getElementById('pivotValue');
+
+            camposCategoricos.forEach(campo => {
+                rowSelect.innerHTML += `<option value="${campo}">${campo}</option>`;
+                colSelect.innerHTML += `<option value="${campo}">${campo}</option>`;
+            });
+
+            camposNumericos.forEach(campo => {
+                valueSelect.innerHTML += `<option value="${campo}">${campo}</option>`;
+            });
+
+            // Valores padrão
+            rowSelect.value = 'FaixaAtraso';
+            colSelect.value = 'FaixaAtraso';
+            valueSelect.value = 'ValorPago';
+
+            updatePivotTable();
+        }
+
+        function updatePivotTable() {
+            const rowField = document.getElementById('pivotRow').value;
+            const colField = document.getElementById('pivotCol').value;
+            const valueField = document.getElementById('pivotValue').value;
+            const aggType = document.getElementById('pivotAgg').value;
+
+            const data = dashboardData.dados_completos;
+
+            // Criar pivot
+            const pivot = {};
+            const rowValues = new Set();
+            const colValues = new Set();
+
+            data.forEach(row => {
+                const rowVal = row[rowField];
+                const colVal = row[colField];
+                const value = row[valueField];
+
+                rowValues.add(rowVal);
+                colValues.add(colVal);
+
+                const key = `${rowVal}|||${colVal}`;
+                if (!pivot[key]) {
+                    pivot[key] = [];
+                }
+                pivot[key].push(value);
+            });
+
+            // Calcular agregação
+            const aggregated = {};
+            for (const key in pivot) {
+                const values = pivot[key];
+                let result;
+                switch (aggType) {
+                    case 'sum':
+                        result = values.reduce((a, b) => a + b, 0);
+                        break;
+                    case 'avg':
+                        result = values.reduce((a, b) => a + b, 0) / values.length;
+                        break;
+                    case 'count':
+                        result = values.length;
+                        break;
+                    case 'min':
+                        result = Math.min(...values);
+                        break;
+                    case 'max':
+                        result = Math.max(...values);
+                        break;
+                }
+                aggregated[key] = result;
+            }
+
+            // Renderizar tabela
+            const sortedRows = Array.from(rowValues).sort();
+            const sortedCols = Array.from(colValues).sort();
+
+            let tableHTML = '<table class="pivot-table"><thead><tr><th></th>';
+            sortedCols.forEach(col => {
+                tableHTML += `<th>${col}</th>`;
+            });
+            tableHTML += '</tr></thead><tbody>';
+
+            sortedRows.forEach(row => {
+                tableHTML += `<tr><th>${row}</th>`;
+                sortedCols.forEach(col => {
+                    const key = `${row}|||${col}`;
+                    const value = aggregated[key] || 0;
+                    const formatted = valueField.includes('Valor') || valueField.includes('Comissao') || valueField.includes('Base') 
+                        ? formatCurrency(value) 
+                        : valueField.includes('Perc') 
+                        ? formatPercent(value)
+                        : formatNumber(value);
+                    tableHTML += `<td>${formatted}</td>`;
+                });
+                tableHTML += '</tr>';
+            });
+
+            tableHTML += '</tbody></table>';
+            document.getElementById('pivotTableContainer').innerHTML = tableHTML;
+        }
+
+        function renderDistributionAnalysis() {
+            const faixas = dashboardData.analise_faixas;
+
+            // Preparar dados para o gráfico de distribuição
+            const ctx = document.getElementById('distributionChart').getContext('2d');
+            
+            const datasets = faixas.map((faixa, index) => {
+                const colors = [
+                    'rgba(0, 122, 255, 0.6)',
+                    'rgba(88, 86, 214, 0.6)',
+                    'rgba(52, 199, 89, 0.6)',
+                    'rgba(255, 149, 0, 0.6)',
+                    'rgba(255, 59, 48, 0.6)',
+                    'rgba(175, 82, 222, 0.6)',
+                    'rgba(255, 45, 85, 0.6)'
+                ];
+
+                return {
+                    label: faixa.faixa,
+                    data: createHistogramData(faixa.distribuicao_comissoes),
+                    backgroundColor: colors[index],
+                    borderColor: colors[index].replace('0.6', '1'),
+                    borderWidth: 1
+                };
+            });
+
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: ['0-2%', '2-4%', '4-6%', '6-8%', '8-10%', '10-12%', '12-15%', '>15%'],
+                    datasets: datasets
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            labels: { color: '#FFFFFF' }
+                        },
+                        title: {
+                            display: true,
+                            text: 'Distribuição de % Comissão por Faixa de Atraso',
+                            color: '#FFFFFF'
+                        }
+                    },
+                    scales: {
+                        y: {
+                            ticks: { color: '#8E8E93' },
+                            grid: { color: '#38383A' }
+                        },
+                        x: {
+                            ticks: { color: '#8E8E93' },
+                            grid: { color: '#38383A' }
+                        }
+                    }
+                }
+            });
+
+            // Estatísticas por faixa
+            const statsHTML = faixas.map(faixa => `
+                <div class="distribution-card">
+                    <h4>${faixa.faixa}</h4>
+                    <div class="stat-row">
+                        <span class="stat-label">Média:</span>
+                        <span class="stat-value">${formatPercent(faixa.perc_comissao_individual_media)}</span>
+                    </div>
+                    <div class="stat-row">
+                        <span class="stat-label">Mediana:</span>
+                        <span class="stat-value">${formatPercent(faixa.perc_comissao_individual_mediana)}</span>
+                    </div>
+                    <div class="stat-row">
+                        <span class="stat-label">Mínimo:</span>
+                        <span class="stat-value">${formatPercent(faixa.perc_comissao_individual_min)}</span>
+                    </div>
+                    <div class="stat-row">
+                        <span class="stat-label">Máximo:</span>
+                        <span class="stat-value">${formatPercent(faixa.perc_comissao_individual_max)}</span>
+                    </div>
+                    <div class="stat-row">
+                        <span class="stat-label">Desvio Padrão:</span>
+                        <span class="stat-value">${formatPercent(faixa.perc_comissao_individual_std)}</span>
+                    </div>
+                </div>
+            `).join('');
+
+            document.getElementById('distributionStats').innerHTML = statsHTML;
+        }
+
+        function createHistogramData(values) {
+            const bins = [0, 2, 4, 6, 8, 10, 12, 15, Infinity];
+            const counts = new Array(bins.length - 1).fill(0);
+
+            values.forEach(val => {
+                for (let i = 0; i < bins.length - 1; i++) {
+                    if (val >= bins[i] && val < bins[i + 1]) {
+                        counts[i]++;
+                        break;
+                    }
+                }
+            });
+
+            return counts;
+        }
+
+        // Inicializar ao carregar a página
+        window.addEventListener('load', loadData);
+    </script>
+</body>
+</html>
