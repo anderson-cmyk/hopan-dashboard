@@ -755,112 +755,108 @@
         }
 
         function renderDistributionAnalysis() {
-            const faixas = {};
+            // Agrupar dados por mês e faixa de atraso
+            const faixasPorMes = {};
             const ordem = ['0-20 dias', '21-30 dias', '31-60 dias', '61-90 dias', 
                           '91-180 dias', '181-360 dias', 'Maior que 360 dias'];
+            
+            const meses = dashboardData.metadados.meses_disponiveis || [];
 
-            ordem.forEach(f => faixas[f] = []);
+            // Inicializar estrutura
+            meses.forEach(mes => {
+                faixasPorMes[mes] = {};
+                ordem.forEach(f => faixasPorMes[mes][f] = []);
+            });
 
+            // Preencher dados
             filteredData.forEach(d => {
-                if (faixas[d.FaixaAtraso]) {
-                    faixas[d.FaixaAtraso].push(d.PercComissao);
+                if (faixasPorMes[d.MesAno] && faixasPorMes[d.MesAno][d.FaixaAtraso]) {
+                    faixasPorMes[d.MesAno][d.FaixaAtraso].push(d.PercComissao);
                 }
             });
 
-            const ctx = document.getElementById('distributionChart');
-            if (window.distributionChartInstance) {
-                window.distributionChartInstance.destroy();
-            }
+            // Remover gráfico (não será mais usado)
+            const chartContainer = document.getElementById('distributionChart').parentElement;
+            chartContainer.style.display = 'none';
 
-            const colors = [
-                'rgba(0, 122, 255, 0.6)',
-                'rgba(88, 86, 214, 0.6)',
-                'rgba(52, 199, 89, 0.6)',
-                'rgba(255, 149, 0, 0.6)',
-                'rgba(255, 59, 48, 0.6)',
-                'rgba(175, 82, 222, 0.6)',
-                'rgba(255, 45, 85, 0.6)'
-            ];
+            // Criar tabela de estatísticas por mês
+            let statsHTML = '<div style="overflow-x: auto;"><table><thead><tr><th>Faixa de Atraso</th><th>Estatística</th>';
+            
+            meses.forEach(mes => {
+                statsHTML += `<th>${formatMonthYear(mes)}</th>`;
+            });
+            statsHTML += '</tr></thead><tbody>';
 
-            const datasets = ordem.map((faixa, index) => ({
-                label: faixa,
-                data: createHistogramData(faixas[faixa]),
-                backgroundColor: colors[index],
-                borderColor: colors[index].replace('0.6', '1'),
-                borderWidth: 1
-            }));
-
-            window.distributionChartInstance = new Chart(ctx, {
-                type: 'bar',
-                data: {
-                    labels: ['0-2%', '2-4%', '4-6%', '6-8%', '8-10%', '10-12%', '12-15%', '>15%'],
-                    datasets: datasets
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: {
-                            labels: { color: '#FFFFFF' }
-                        },
-                        title: {
-                            display: true,
-                            text: 'Distribuição de % Comissão por Faixa de Atraso',
-                            color: '#FFFFFF'
-                        }
-                    },
-                    scales: {
-                        y: {
-                            ticks: { color: '#8E8E93' },
-                            grid: { color: '#38383A' }
-                        },
-                        x: {
-                            ticks: { color: '#8E8E93' },
-                            grid: { color: '#38383A' }
-                        }
+            ordem.forEach(faixa => {
+                // Linha de Média
+                statsHTML += `<tr><td rowspan="5"><strong>${faixa}</strong></td><td>Média</td>`;
+                meses.forEach(mes => {
+                    const valores = faixasPorMes[mes][faixa];
+                    if (valores.length > 0) {
+                        const media = valores.reduce((a, b) => a + b, 0) / valores.length;
+                        statsHTML += `<td>${formatPercent(media)}</td>`;
+                    } else {
+                        statsHTML += `<td>-</td>`;
                     }
-                }
+                });
+                statsHTML += '</tr>';
+
+                // Linha de Mediana
+                statsHTML += `<tr><td>Mediana</td>`;
+                meses.forEach(mes => {
+                    const valores = faixasPorMes[mes][faixa];
+                    if (valores.length > 0) {
+                        const sorted = [...valores].sort((a, b) => a - b);
+                        const mediana = sorted[Math.floor(sorted.length / 2)];
+                        statsHTML += `<td>${formatPercent(mediana)}</td>`;
+                    } else {
+                        statsHTML += `<td>-</td>`;
+                    }
+                });
+                statsHTML += '</tr>';
+
+                // Linha de Mínimo
+                statsHTML += `<tr><td>Mínimo</td>`;
+                meses.forEach(mes => {
+                    const valores = faixasPorMes[mes][faixa];
+                    if (valores.length > 0) {
+                        const min = Math.min(...valores);
+                        statsHTML += `<td>${formatPercent(min)}</td>`;
+                    } else {
+                        statsHTML += `<td>-</td>`;
+                    }
+                });
+                statsHTML += '</tr>';
+
+                // Linha de Máximo
+                statsHTML += `<tr><td>Máximo</td>`;
+                meses.forEach(mes => {
+                    const valores = faixasPorMes[mes][faixa];
+                    if (valores.length > 0) {
+                        const max = Math.max(...valores);
+                        statsHTML += `<td>${formatPercent(max)}</td>`;
+                    } else {
+                        statsHTML += `<td>-</td>`;
+                    }
+                });
+                statsHTML += '</tr>';
+
+                // Linha de Desvio Padrão
+                statsHTML += `<tr><td>Desvio Padrão</td>`;
+                meses.forEach(mes => {
+                    const valores = faixasPorMes[mes][faixa];
+                    if (valores.length > 0) {
+                        const media = valores.reduce((a, b) => a + b, 0) / valores.length;
+                        const std = Math.sqrt(valores.reduce((sum, val) => sum + Math.pow(val - media, 2), 0) / valores.length);
+                        statsHTML += `<td>${formatPercent(std)}</td>`;
+                    } else {
+                        statsHTML += `<td>-</td>`;
+                    }
+                });
+                statsHTML += '</tr>';
             });
 
-            // Estatísticas
-            const statsHTML = ordem.map(faixa => {
-                const valores = faixas[faixa];
-                if (valores.length === 0) return '';
-
-                const media = valores.reduce((a, b) => a + b, 0) / valores.length;
-                const sorted = [...valores].sort((a, b) => a - b);
-                const mediana = sorted[Math.floor(sorted.length / 2)];
-                const min = Math.min(...valores);
-                const max = Math.max(...valores);
-                const std = Math.sqrt(valores.reduce((sum, val) => sum + Math.pow(val - media, 2), 0) / valores.length);
-
-                return `
-                    <div class="distribution-card">
-                        <h4>${faixa}</h4>
-                        <div class="stat-row">
-                            <span class="stat-label">Média:</span>
-                            <span class="stat-value">${formatPercent(media)}</span>
-                        </div>
-                        <div class="stat-row">
-                            <span class="stat-label">Mediana:</span>
-                            <span class="stat-value">${formatPercent(mediana)}</span>
-                        </div>
-                        <div class="stat-row">
-                            <span class="stat-label">Mínimo:</span>
-                            <span class="stat-value">${formatPercent(min)}</span>
-                        </div>
-                        <div class="stat-row">
-                            <span class="stat-label">Máximo:</span>
-                            <span class="stat-value">${formatPercent(max)}</span>
-                        </div>
-                        <div class="stat-row">
-                            <span class="stat-label">Desvio Padrão:</span>
-                            <span class="stat-value">${formatPercent(std)}</span>
-                        </div>
-                    </div>
-                `;
-            }).join('');
-
+            statsHTML += '</tbody></table></div>';
             document.getElementById('distributionStats').innerHTML = statsHTML;
         }
 
