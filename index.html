@@ -492,8 +492,8 @@
         function initializePivotTable() {
             const camposNumericos = dashboardData.metadados.campos_numericos;
             
-            // Apenas FaixaAtraso e DataBase para campos categóricos
-            const camposCategoricos = ['FaixaAtraso', 'DataBase'];
+            // Campos categóricos: FaixaAtraso, FaixaValor e DataBase
+            const camposCategoricos = ['FaixaAtraso', 'FaixaValor', 'DataBase'];
 
             // Preencher selects
             const rowSelect = document.getElementById('pivotRow');
@@ -511,7 +511,7 @@
 
             // Valores padrão
             rowSelect.value = 'FaixaAtraso';
-            colSelect.value = 'DataBase';
+            colSelect.value = 'FaixaValor';
             valueSelect.value = 'ValorPago';
 
             updatePivotTable();
