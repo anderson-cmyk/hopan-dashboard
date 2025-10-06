@@ -376,6 +376,15 @@
             <!-- Seção 4: Distribuição Normal de Comissões -->
             <div class="section">
                 <h2 class="section-title">Distribuição de % Comissão por Faixa</h2>
+                <div class="controls" style="margin-bottom: 20px;">
+                    <div>
+                        <label style="display: block; margin-bottom: 5px; color: var(--text-secondary);">Analisar por:</label>
+                        <select id="distributionType" onchange="renderDistributionAnalysis()">
+                            <option value="atraso">Faixa de Atraso</option>
+                            <option value="valor">Faixa de Valor</option>
+                        </select>
+                    </div>
+                </div>
                 <div class="chart-container">
                     <canvas id="distributionChart"></canvas>
                 </div>
@@ -712,10 +721,29 @@
         }
 
         function renderDistributionAnalysis() {
-            // Agrupar dados por mês e faixa de atraso
+            const tipo = document.getElementById('distributionType').value;
             const faixasPorMes = {};
-            const ordem = ['0-20 dias', '21-30 dias', '31-60 dias', '61-90 dias', 
-                          '91-180 dias', '181-360 dias', 'Maior que 360 dias'];
+            let ordem, campoFaixa, tituloFaixa;
+
+            // Definir ordem e campo baseado no tipo selecionado
+            if (tipo === 'atraso') {
+                ordem = ['0-20 dias', '21-30 dias', '31-60 dias', '61-90 dias', 
+                        '91-180 dias', '181-360 dias', 'Maior que 360 dias'];
+                campoFaixa = 'FaixaAtraso';
+                tituloFaixa = 'Faixa de Atraso';
+            } else {
+                ordem = [
+                    '1. Até R$ 1.000',
+                    '2. R$ 1.001 a R$ 1.500',
+                    '3. R$ 1.501 a R$ 2.000',
+                    '4. R$ 2.001 a R$ 3.000',
+                    '5. R$ 3.001 a R$ 5.000',
+                    '6. R$ 5.001 a R$ 10.000',
+                    '7. Maior que R$ 10.000'
+                ];
+                campoFaixa = 'FaixaValor';
+                tituloFaixa = 'Faixa de Valor';
+            }
             
             const meses = dashboardData.metadados.meses_disponiveis || [];
 
@@ -727,8 +755,9 @@
 
             // Preencher dados
             filteredData.forEach(d => {
-                if (faixasPorMes[d.MesAno] && faixasPorMes[d.MesAno][d.FaixaAtraso]) {
-                    faixasPorMes[d.MesAno][d.FaixaAtraso].push(d.PercComissao);
+                const faixaValor = d[campoFaixa];
+                if (faixasPorMes[d.MesAno] && faixasPorMes[d.MesAno][faixaValor] !== undefined) {
+                    faixasPorMes[d.MesAno][faixaValor].push(d.PercComissao);
                 }
             });
 
@@ -737,7 +766,7 @@
             chartContainer.style.display = 'none';
 
             // Criar tabela de estatísticas por mês
-            let statsHTML = '<div style="overflow-x: auto;"><table><thead><tr><th>Faixa de Atraso</th><th>Estatística</th>';
+            let statsHTML = '<div style="overflow-x: auto;"><table><thead><tr><th>' + tituloFaixa + '</th><th>Estatística</th>';
             
             meses.forEach(mes => {
                 statsHTML += `<th>${formatMonthYear(mes)}</th>`;
