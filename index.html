@@ -60,6 +60,42 @@
             font-size: 1.1rem;
         }
 
+        .master-filter {
+            background: var(--bg-secondary);
+            border: 2px solid var(--primary);
+            border-radius: 16px;
+            padding: 24px;
+            margin-bottom: 30px;
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+
+        .master-filter-label {
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: var(--primary);
+        }
+
+        .master-filter select {
+            flex: 1;
+            min-width: 200px;
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 14px 20px;
+            font-size: 1.1rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .master-filter select:hover {
+            border-color: var(--primary);
+            background: var(--bg-secondary);
+        }
+
         .kpi-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
@@ -261,13 +297,21 @@
         .stat-value {
             font-weight: 600;
         }
+
+        .month-analysis-table {
+            overflow-x: auto;
+        }
+
+        .month-analysis-table table {
+            min-width: 800px;
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <header>
             <h1>Dashboard HOPAN</h1>
-            <p class="subtitle">Análise de Comissões e Atrasos - Setembro 2025</p>
+            <p class="subtitle">Análise de Comissões e Atrasos</p>
         </header>
 
         <div id="loading" class="loading">
@@ -276,6 +320,14 @@
         </div>
 
         <div id="content" style="display: none;">
+            <!-- Filtro Master por Mês -->
+            <div class="master-filter">
+                <span class="master-filter-label">🔍 Filtrar por Mês:</span>
+                <select id="masterMonthFilter" onchange="applyMasterFilter()">
+                    <option value="all">Todos os Meses</option>
+                </select>
+            </div>
+
             <!-- KPIs Principais -->
             <div class="kpi-grid" id="kpiGrid"></div>
 
@@ -288,7 +340,13 @@
                 <div id="faixasTable"></div>
             </div>
 
-            <!-- Seção 2: Tabela Dinâmica -->
+            <!-- Seção 2: Análise Temporal de % Comissão por Mês -->
+            <div class="section">
+                <h2 class="section-title">Análise Temporal: % Comissão por Faixa de Atraso</h2>
+                <div class="month-analysis-table" id="monthAnalysisTable"></div>
+            </div>
+
+            <!-- Seção 3: Tabela Dinâmica -->
             <div class="section">
                 <h2 class="section-title">Tabela Dinâmica Configurável</h2>
                 <div class="controls">
@@ -321,7 +379,7 @@
                 <div class="pivot-table-container" id="pivotTableContainer"></div>
             </div>
 
-            <!-- Seção 3: Distribuição Normal de Comissões -->
+            <!-- Seção 4: Distribuição Normal de Comissões -->
             <div class="section">
                 <h2 class="section-title">Distribuição de % Comissão por Faixa</h2>
                 <div class="chart-container">
@@ -334,12 +392,15 @@
 
     <script>
         let dashboardData = null;
+        let filteredData = null;
+        let currentMonth = 'all';
 
         // Carregar dados
         async function loadData() {
             try {
                 const response = await fetch('dashboard_data.json');
                 dashboardData = await response.json();
+                filteredData = dashboardData.dados_completos;
                 initializeDashboard();
             } catch (error) {
                 console.error('Erro ao carregar dados:', error);
@@ -366,19 +427,59 @@
             document.getElementById('loading').style.display = 'none';
             document.getElementById('content').style.display = 'block';
 
+            populateMonthFilter();
             renderKPIs();
             renderFaixasAnalysis();
+            renderMonthAnalysisTable();
             initializePivotTable();
             renderDistributionAnalysis();
         }
 
+        function populateMonthFilter() {
+            const select = document.getElementById('masterMonthFilter');
+            const meses = dashboardData.metadados.meses_disponiveis || [];
+            
+            meses.forEach(mes => {
+                const option = document.createElement('option');
+                option.value = mes;
+                option.textContent = formatMonthYear(mes);
+                select.appendChild(option);
+            });
+        }
+
+        function formatMonthYear(mesAno) {
+            const [year, month] = mesAno.split('-');
+            const meses = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 
+                          'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+            return `${meses[parseInt(month) - 1]}/${year}`;
+        }
+
+        function applyMasterFilter() {
+            currentMonth = document.getElementById('masterMonthFilter').value;
+            
+            if (currentMonth === 'all') {
+                filteredData = dashboardData.dados_completos;
+            } else {
+                filteredData = dashboardData.dados_completos.filter(d => d.MesAno === currentMonth);
+            }
+
+            renderKPIs();
+            renderFaixasAnalysis();
+            updatePivotTable();
+            renderDistributionAnalysis();
+        }
+
         function renderKPIs() {
-            const meta = dashboardData.metadados;
+            const totalOps = filteredData.length;
+            const totalPago = filteredData.reduce((sum, d) => sum + d.ValorPago, 0);
+            const totalComissao = filteredData.reduce((sum, d) => sum + d.ValorComissao, 0);
+            const percComissao = (totalComissao / totalPago * 100);
+
             const kpis = [
-                { label: 'Total de Operações', value: formatNumber(meta.total_operacoes), color: 'var(--primary)' },
-                { label: 'Valor Total Pago', value: formatCurrency(meta.total_geral_pago), color: 'var(--success)' },
-                { label: 'Total Comissões', value: formatCurrency(meta.total_geral_comissao), color: 'var(--warning)' },
-                { label: '% Comissão Geral', value: formatPercent(meta.perc_comissao_geral), color: 'var(--secondary)' }
+                { label: 'Total de Operações', value: formatNumber(totalOps), color: 'var(--primary)' },
+                { label: 'Valor Total Pago', value: formatCurrency(totalPago), color: 'var(--success)' },
+                { label: 'Total Comissões', value: formatCurrency(totalComissao), color: 'var(--warning)' },
+                { label: '% Comissão Geral', value: formatPercent(percComissao), color: 'var(--secondary)' }
             ];
 
             const grid = document.getElementById('kpiGrid');
@@ -391,30 +492,54 @@
         }
 
         function renderFaixasAnalysis() {
-            const faixas = dashboardData.analise_faixas;
-            
+            const faixas = {};
+            const ordem = ['0-20 dias', '21-30 dias', '31-60 dias', '61-90 dias', 
+                          '91-180 dias', '181-360 dias', 'Maior que 360 dias'];
+
+            ordem.forEach(f => faixas[f] = { ops: 0, pago: 0, comissao: 0 });
+
+            filteredData.forEach(d => {
+                if (faixas[d.FaixaAtraso]) {
+                    faixas[d.FaixaAtraso].ops++;
+                    faixas[d.FaixaAtraso].pago += d.ValorPago;
+                    faixas[d.FaixaAtraso].comissao += d.ValorComissao;
+                }
+            });
+
+            const faixasArray = ordem.map(f => ({
+                faixa: f,
+                ops: faixas[f].ops,
+                pago: faixas[f].pago,
+                comissao: faixas[f].comissao,
+                perc: faixas[f].pago > 0 ? (faixas[f].comissao / faixas[f].pago * 100) : 0
+            }));
+
             // Gráfico
-            const ctx = document.getElementById('faixasChart').getContext('2d');
-            new Chart(ctx, {
+            const ctx = document.getElementById('faixasChart');
+            if (window.faixasChartInstance) {
+                window.faixasChartInstance.destroy();
+            }
+
+            window.faixasChartInstance = new Chart(ctx, {
                 type: 'bar',
                 data: {
-                    labels: faixas.map(f => f.faixa),
+                    labels: faixasArray.map(f => f.faixa),
                     datasets: [
                         {
                             label: 'Total Pago (R$)',
-                            data: faixas.map(f => f.total_pago),
+                            data: faixasArray.map(f => f.pago),
                             backgroundColor: 'rgba(0, 122, 255, 0.7)',
                             yAxisID: 'y'
                         },
                         {
                             label: 'Total Comissão (R$)',
-                            data: faixas.map(f => f.total_comissao),
+                            data: faixasArray.map(f => f.comissao),
                             backgroundColor: 'rgba(255, 149, 0, 0.7)',
                             yAxisID: 'y'
                         },
                         {
                             label: '% Comissão',
-                            data: faixas.map(f => f.perc_comissao_medio),
+                            data: faixasArray.map(f => f.perc),
                             type: 'line',
                             borderColor: 'rgba(52, 199, 89, 1)',
                             backgroundColor: 'rgba(52, 199, 89, 0.2)',
@@ -468,13 +593,13 @@
                         </tr>
                     </thead>
                     <tbody>
-                        ${faixas.map(f => `
+                        ${faixasArray.map(f => `
                             <tr>
                                 <td><span class="badge ${getBadgeClass(f.faixa)}">${f.faixa}</span></td>
-                                <td>${formatNumber(f.total_operacoes)}</td>
-                                <td>${formatCurrency(f.total_pago)}</td>
-                                <td>${formatCurrency(f.total_comissao)}</td>
-                                <td>${formatPercent(f.perc_comissao_medio)}</td>
+                                <td>${formatNumber(f.ops)}</td>
+                                <td>${formatCurrency(f.pago)}</td>
+                                <td>${formatCurrency(f.comissao)}</td>
+                                <td>${formatPercent(f.perc)}</td>
                             </tr>
                         `).join('')}
                     </tbody>
@@ -489,13 +614,48 @@
             return 'badge-danger';
         }
 
+        function renderMonthAnalysisTable() {
+            if (!dashboardData.analise_por_mes) {
+                document.getElementById('monthAnalysisTable').innerHTML = '<p>Análise por mês não disponível.</p>';
+                return;
+            }
+
+            const meses = Object.keys(dashboardData.analise_por_mes).sort();
+            const faixas = ['0-20 dias', '21-30 dias', '31-60 dias', '61-90 dias', 
+                           '91-180 dias', '181-360 dias', 'Maior que 360 dias'];
+
+            let tableHTML = '<table><thead><tr><th>Faixa / Estatística</th>';
+            meses.forEach(mes => {
+                tableHTML += `<th>${formatMonthYear(mes)}</th>`;
+            });
+            tableHTML += '</tr></thead><tbody>';
+
+            faixas.forEach(faixa => {
+                // Média
+                tableHTML += `<tr><td><strong>${faixa}</strong> - Média</td>`;
+                meses.forEach(mes => {
+                    const valor = dashboardData.analise_por_mes[mes][faixa]?.media || 0;
+                    tableHTML += `<td>${formatPercent(valor)}</td>`;
+                });
+                tableHTML += '</tr>';
+
+                // Mediana
+                tableHTML += `<tr><td>${faixa} - Mediana</td>`;
+                meses.forEach(mes => {
+                    const valor = dashboardData.analise_por_mes[mes][faixa]?.mediana || 0;
+                    tableHTML += `<td>${formatPercent(valor)}</td>`;
+                });
+                tableHTML += '</tr>';
+            });
+
+            tableHTML += '</tbody></table>';
+            document.getElementById('monthAnalysisTable').innerHTML = tableHTML;
+        }
+
         function initializePivotTable() {
             const camposNumericos = dashboardData.metadados.campos_numericos;
-            
-            // Campos categóricos: FaixaAtraso, FaixaValor e DataBase
-            const camposCategoricos = ['FaixaAtraso', 'FaixaValor', 'DataBase'];
+            const camposCategoricos = ['FaixaAtraso', 'FaixaValor', 'MesAno'];
 
-            // Preencher selects
             const rowSelect = document.getElementById('pivotRow');
             const colSelect = document.getElementById('pivotCol');
             const valueSelect = document.getElementById('pivotValue');
@@ -509,7 +669,6 @@
                 valueSelect.innerHTML += `<option value="${campo}">${campo}</option>`;
             });
 
-            // Valores padrão
             rowSelect.value = 'FaixaAtraso';
             colSelect.value = 'FaixaValor';
             valueSelect.value = 'ValorPago';
@@ -523,9 +682,7 @@
             const valueField = document.getElementById('pivotValue').value;
             const aggType = document.getElementById('pivotAgg').value;
 
-            const data = dashboardData.dados_completos;
-
-            // Criar pivot
+            const data = filteredData;
             const pivot = {};
             const rowValues = new Set();
             const colValues = new Set();
@@ -545,7 +702,6 @@
                 pivot[key].push(value);
             });
 
-            // Calcular agregação
             const aggregated = {};
             for (const key in pivot) {
                 const values = pivot[key];
@@ -570,7 +726,6 @@
                 aggregated[key] = result;
             }
 
-            // Renderizar tabela
             const sortedRows = Array.from(rowValues).sort();
             const sortedCols = Array.from(colValues).sort();
 
@@ -600,32 +755,42 @@
         }
 
         function renderDistributionAnalysis() {
-            const faixas = dashboardData.analise_faixas;
+            const faixas = {};
+            const ordem = ['0-20 dias', '21-30 dias', '31-60 dias', '61-90 dias', 
+                          '91-180 dias', '181-360 dias', 'Maior que 360 dias'];
 
-            // Preparar dados para o gráfico de distribuição
-            const ctx = document.getElementById('distributionChart').getContext('2d');
-            
-            const datasets = faixas.map((faixa, index) => {
-                const colors = [
-                    'rgba(0, 122, 255, 0.6)',
-                    'rgba(88, 86, 214, 0.6)',
-                    'rgba(52, 199, 89, 0.6)',
-                    'rgba(255, 149, 0, 0.6)',
-                    'rgba(255, 59, 48, 0.6)',
-                    'rgba(175, 82, 222, 0.6)',
-                    'rgba(255, 45, 85, 0.6)'
-                ];
+            ordem.forEach(f => faixas[f] = []);
 
-                return {
-                    label: faixa.faixa,
-                    data: createHistogramData(faixa.distribuicao_comissoes),
-                    backgroundColor: colors[index],
-                    borderColor: colors[index].replace('0.6', '1'),
-                    borderWidth: 1
-                };
+            filteredData.forEach(d => {
+                if (faixas[d.FaixaAtraso]) {
+                    faixas[d.FaixaAtraso].push(d.PercComissao);
+                }
             });
 
-            new Chart(ctx, {
+            const ctx = document.getElementById('distributionChart');
+            if (window.distributionChartInstance) {
+                window.distributionChartInstance.destroy();
+            }
+
+            const colors = [
+                'rgba(0, 122, 255, 0.6)',
+                'rgba(88, 86, 214, 0.6)',
+                'rgba(52, 199, 89, 0.6)',
+                'rgba(255, 149, 0, 0.6)',
+                'rgba(255, 59, 48, 0.6)',
+                'rgba(175, 82, 222, 0.6)',
+                'rgba(255, 45, 85, 0.6)'
+            ];
+
+            const datasets = ordem.map((faixa, index) => ({
+                label: faixa,
+                data: createHistogramData(faixas[faixa]),
+                backgroundColor: colors[index],
+                borderColor: colors[index].replace('0.6', '1'),
+                borderWidth: 1
+            }));
+
+            window.distributionChartInstance = new Chart(ctx, {
                 type: 'bar',
                 data: {
                     labels: ['0-2%', '2-4%', '4-6%', '6-8%', '8-10%', '10-12%', '12-15%', '>15%'],
@@ -657,32 +822,44 @@
                 }
             });
 
-            // Estatísticas por faixa
-            const statsHTML = faixas.map(faixa => `
-                <div class="distribution-card">
-                    <h4>${faixa.faixa}</h4>
-                    <div class="stat-row">
-                        <span class="stat-label">Média:</span>
-                        <span class="stat-value">${formatPercent(faixa.perc_comissao_individual_media)}</span>
+            // Estatísticas
+            const statsHTML = ordem.map(faixa => {
+                const valores = faixas[faixa];
+                if (valores.length === 0) return '';
+
+                const media = valores.reduce((a, b) => a + b, 0) / valores.length;
+                const sorted = [...valores].sort((a, b) => a - b);
+                const mediana = sorted[Math.floor(sorted.length / 2)];
+                const min = Math.min(...valores);
+                const max = Math.max(...valores);
+                const std = Math.sqrt(valores.reduce((sum, val) => sum + Math.pow(val - media, 2), 0) / valores.length);
+
+                return `
+                    <div class="distribution-card">
+                        <h4>${faixa}</h4>
+                        <div class="stat-row">
+                            <span class="stat-label">Média:</span>
+                            <span class="stat-value">${formatPercent(media)}</span>
+                        </div>
+                        <div class="stat-row">
+                            <span class="stat-label">Mediana:</span>
+                            <span class="stat-value">${formatPercent(mediana)}</span>
+                        </div>
+                        <div class="stat-row">
+                            <span class="stat-label">Mínimo:</span>
+                            <span class="stat-value">${formatPercent(min)}</span>
+                        </div>
+                        <div class="stat-row">
+                            <span class="stat-label">Máximo:</span>
+                            <span class="stat-value">${formatPercent(max)}</span>
+                        </div>
+                        <div class="stat-row">
+                            <span class="stat-label">Desvio Padrão:</span>
+                            <span class="stat-value">${formatPercent(std)}</span>
+                        </div>
                     </div>
-                    <div class="stat-row">
-                        <span class="stat-label">Mediana:</span>
-                        <span class="stat-value">${formatPercent(faixa.perc_comissao_individual_mediana)}</span>
-                    </div>
-                    <div class="stat-row">
-                        <span class="stat-label">Mínimo:</span>
-                        <span class="stat-value">${formatPercent(faixa.perc_comissao_individual_min)}</span>
-                    </div>
-                    <div class="stat-row">
-                        <span class="stat-label">Máximo:</span>
-                        <span class="stat-value">${formatPercent(faixa.perc_comissao_individual_max)}</span>
-                    </div>
-                    <div class="stat-row">
-                        <span class="stat-label">Desvio Padrão:</span>
-                        <span class="stat-value">${formatPercent(faixa.perc_comissao_individual_std)}</span>
-                    </div>
-                </div>
-            `).join('');
+                `;
+            }).join('');
 
             document.getElementById('distributionStats').innerHTML = statsHTML;
         }
@@ -703,7 +880,6 @@
             return counts;
         }
 
-        // Inicializar ao carregar a página
         window.addEventListener('load', loadData);
     </script>
 </body>
