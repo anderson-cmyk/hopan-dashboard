@@ -340,13 +340,7 @@
                 <div id="faixasTable"></div>
             </div>
 
-            <!-- Seção 2: Análise Temporal de % Comissão por Mês -->
-            <div class="section">
-                <h2 class="section-title">Análise Temporal: % Comissão por Faixa de Atraso</h2>
-                <div class="month-analysis-table" id="monthAnalysisTable"></div>
-            </div>
-
-            <!-- Seção 3: Tabela Dinâmica -->
+            <!-- Seção 2: Tabela Dinâmica -->
             <div class="section">
                 <h2 class="section-title">Tabela Dinâmica Configurável</h2>
                 <div class="controls">
@@ -430,7 +424,6 @@
             populateMonthFilter();
             renderKPIs();
             renderFaixasAnalysis();
-            renderMonthAnalysisTable();
             initializePivotTable();
             renderDistributionAnalysis();
         }
@@ -614,43 +607,7 @@
             return 'badge-danger';
         }
 
-        function renderMonthAnalysisTable() {
-            if (!dashboardData.analise_por_mes) {
-                document.getElementById('monthAnalysisTable').innerHTML = '<p>Análise por mês não disponível.</p>';
-                return;
-            }
 
-            const meses = Object.keys(dashboardData.analise_por_mes).sort();
-            const faixas = ['0-20 dias', '21-30 dias', '31-60 dias', '61-90 dias', 
-                           '91-180 dias', '181-360 dias', 'Maior que 360 dias'];
-
-            let tableHTML = '<table><thead><tr><th>Faixa / Estatística</th>';
-            meses.forEach(mes => {
-                tableHTML += `<th>${formatMonthYear(mes)}</th>`;
-            });
-            tableHTML += '</tr></thead><tbody>';
-
-            faixas.forEach(faixa => {
-                // Média
-                tableHTML += `<tr><td><strong>${faixa}</strong> - Média</td>`;
-                meses.forEach(mes => {
-                    const valor = dashboardData.analise_por_mes[mes][faixa]?.media || 0;
-                    tableHTML += `<td>${formatPercent(valor)}</td>`;
-                });
-                tableHTML += '</tr>';
-
-                // Mediana
-                tableHTML += `<tr><td>${faixa} - Mediana</td>`;
-                meses.forEach(mes => {
-                    const valor = dashboardData.analise_por_mes[mes][faixa]?.mediana || 0;
-                    tableHTML += `<td>${formatPercent(valor)}</td>`;
-                });
-                tableHTML += '</tr>';
-            });
-
-            tableHTML += '</tbody></table>';
-            document.getElementById('monthAnalysisTable').innerHTML = tableHTML;
-        }
 
         function initializePivotTable() {
             const camposNumericos = dashboardData.metadados.campos_numericos;
