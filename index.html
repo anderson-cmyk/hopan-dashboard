@@ -390,6 +390,40 @@
                 </div>
                 <div class="distribution-grid" id="distributionStats"></div>
             </div>
+
+            <!-- Seção 5: Análise Específica - Baixa Comissão -->
+            <div class="section">
+                <h2 class="section-title">Análise Específica: % da Base com Baixa Comissão</h2>
+                <div class="controls" style="margin-bottom: 20px; display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px;">
+                    <div>
+                        <label style="display: block; margin-bottom: 5px; color: var(--text-secondary);">Faixa de Atraso:</label>
+                        <select id="lowCommAtrasoFilter" onchange="renderLowCommissionAnalysis()">
+                            <option value="all">Todas as Faixas</option>
+                            <option value="0-20 dias">0-20 dias</option>
+                            <option value="21-30 dias">21-30 dias</option>
+                            <option value="31-60 dias">31-60 dias</option>
+                            <option value="61-90 dias">61-90 dias</option>
+                            <option value="91-180 dias">91-180 dias</option>
+                            <option value="181-360 dias">181-360 dias</option>
+                            <option value="Maior que 360 dias">Maior que 360 dias</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label style="display: block; margin-bottom: 5px; color: var(--text-secondary);">Faixa de Valor:</label>
+                        <select id="lowCommValorFilter" onchange="renderLowCommissionAnalysis()">
+                            <option value="all">Todas as Faixas</option>
+                            <option value="1. Até R$ 1.000">Até R$ 1.000</option>
+                            <option value="2. R$ 1.001 a R$ 1.500">R$ 1.001 a R$ 1.500</option>
+                            <option value="3. R$ 1.501 a R$ 2.000">R$ 1.501 a R$ 2.000</option>
+                            <option value="4. R$ 2.001 a R$ 3.000">R$ 2.001 a R$ 3.000</option>
+                            <option value="5. R$ 3.001 a R$ 5.000">R$ 3.001 a R$ 5.000</option>
+                            <option value="6. R$ 5.001 a R$ 10.000">R$ 5.001 a R$ 10.000</option>
+                            <option value="7. Maior que R$ 10.000">Maior que R$ 10.000</option>
+                        </select>
+                    </div>
+                </div>
+                <div id="lowCommissionTable"></div>
+            </div>
         </div>
     </div>
 
@@ -435,6 +469,7 @@
             renderFaixasAnalysis();
             initializePivotTable();
             renderDistributionAnalysis();
+            renderLowCommissionAnalysis();
         }
 
         function populateMonthFilter() {
@@ -844,6 +879,105 @@
 
             statsHTML += '</tbody></table></div>';
             document.getElementById('distributionStats').innerHTML = statsHTML;
+        }
+
+        function renderLowCommissionAnalysis() {
+            const atrasoFilter = document.getElementById('lowCommAtrasoFilter').value;
+            const valorFilter = document.getElementById('lowCommValorFilter').value;
+
+            // Filtrar dados baseado nos filtros selecionados
+            let dadosFiltrados = filteredData;
+
+            if (atrasoFilter !== 'all') {
+                dadosFiltrados = dadosFiltrados.filter(d => d.FaixaAtraso === atrasoFilter);
+            }
+
+            if (valorFilter !== 'all') {
+                dadosFiltrados = dadosFiltrados.filter(d => d.FaixaValor === valorFilter);
+            }
+
+            // Definir faixas de % comissão
+            const faixasComissao = [
+                { label: 'Menor que 1%', min: 0, max: 1 },
+                { label: '1,01% a 2%', min: 1.01, max: 2 },
+                { label: '2,01% a 3%', min: 2.01, max: 3 }
+            ];
+
+            const meses = dashboardData.metadados.meses_disponiveis || [];
+
+            // Agrupar dados por mês e faixa de comissão
+            const analise = {};
+            
+            meses.forEach(mes => {
+                const dadosMes = dadosFiltrados.filter(d => d.MesAno === mes);
+                const totalMes = dadosMes.length;
+
+                analise[mes] = {};
+
+                faixasComissao.forEach(faixa => {
+                    const dadosFaixa = dadosMes.filter(d => 
+                        d.PercComissao >= faixa.min && d.PercComissao <= faixa.max
+                    );
+
+                    const qtdContratos = dadosFaixa.length;
+                    const percBase = totalMes > 0 ? (qtdContratos / totalMes) * 100 : 0;
+                    const valorPago = dadosFaixa.reduce((sum, d) => sum + d.ValorPago, 0);
+                    const valorComissao = dadosFaixa.reduce((sum, d) => sum + d.ValorComissao, 0);
+
+                    analise[mes][faixa.label] = {
+                        qtdContratos,
+                        percBase,
+                        valorPago,
+                        valorComissao
+                    };
+                });
+            });
+
+            // Criar tabela HTML
+            let tableHTML = '<div style="overflow-x: auto;"><table><thead><tr>';
+            tableHTML += '<th>Faixa % Comissão</th><th>Métrica</th>';
+            
+            meses.forEach(mes => {
+                tableHTML += `<th>${formatMonthYear(mes)}</th>`;
+            });
+            tableHTML += '</tr></thead><tbody>';
+
+            faixasComissao.forEach(faixa => {
+                // Linha 1: Quantidade de Contratos
+                tableHTML += `<tr><td rowspan="4"><strong>${faixa.label}</strong></td><td>Qtd. Contratos</td>`;
+                meses.forEach(mes => {
+                    const valor = analise[mes][faixa.label].qtdContratos;
+                    tableHTML += `<td>${formatNumber(valor)}</td>`;
+                });
+                tableHTML += '</tr>';
+
+                // Linha 2: % da Base
+                tableHTML += `<tr><td>% da Base</td>`;
+                meses.forEach(mes => {
+                    const valor = analise[mes][faixa.label].percBase;
+                    tableHTML += `<td>${formatPercent(valor)}</td>`;
+                });
+                tableHTML += '</tr>';
+
+                // Linha 3: Valor Pago
+                tableHTML += `<tr><td>Valor Pago</td>`;
+                meses.forEach(mes => {
+                    const valor = analise[mes][faixa.label].valorPago;
+                    tableHTML += `<td>${formatCurrency(valor)}</td>`;
+                });
+                tableHTML += '</tr>';
+
+                // Linha 4: Valor Comissão
+                tableHTML += `<tr><td>Valor Comissão</td>`;
+                meses.forEach(mes => {
+                    const valor = analise[mes][faixa.label].valorComissao;
+                    tableHTML += `<td>${formatCurrency(valor)}</td>`;
+                });
+                tableHTML += '</tr>';
+            });
+
+            tableHTML += '</tbody></table></div>';
+            document.getElementById('lowCommissionTable').innerHTML = tableHTML;
         }
 
         function createHistogramData(values) {
