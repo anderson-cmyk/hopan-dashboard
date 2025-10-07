@@ -923,11 +923,22 @@
                 sortedCols.forEach(col => {
                     const key = `${row}|||${col}`;
                     const value = aggregated[key] || 0;
-                    const formatted = valueField.includes('Valor') || valueField.includes('Comissao') || valueField.includes('Base') 
-                        ? formatCurrency(value) 
-                        : valueField.includes('Perc') 
-                        ? formatPercent(value)
-                        : formatNumber(value);
+                    
+                    // Formatação condicional baseada no campo
+                    let formatted;
+                    if (valueField === 'PercComissao') {
+                        // PercComissao sempre em percentual
+                        formatted = formatPercent(value);
+                    } else if (valueField.includes('Valor') || valueField.includes('Comissao') || valueField.includes('Base')) {
+                        // Campos monetários em moeda
+                        formatted = formatCurrency(value);
+                    } else if (valueField.includes('Perc')) {
+                        // Outros percentuais
+                        formatted = formatPercent(value);
+                    } else {
+                        // Números simples
+                        formatted = formatNumber(value);
+                    }
                     
                     // Calcular representatividade
                     let totalValorBase;
