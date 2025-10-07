@@ -424,6 +424,28 @@
                 </div>
                 <div id="lowCommissionTable"></div>
             </div>
+
+            <!-- Seção 6: Visão Diária -->
+            <div class="section">
+                <h2 class="section-title">Visão Diária por Mês</h2>
+                <div class="controls" style="margin-bottom: 20px; display: flex; gap: 15px; align-items: flex-end; flex-wrap: wrap;">
+                    <div>
+                        <label style="display: block; margin-bottom: 5px; color: var(--text-secondary);">Métrica:</label>
+                        <select id="dailyMetric" onchange="renderDailyView()">
+                            <option value="valorPago">Valor Pago</option>
+                            <option value="qtdContratos">Quantidade de Contratos</option>
+                            <option value="ticketMedio">Ticket Médio</option>
+                            <option value="valorComissao">Valor da Comissão</option>
+                            <option value="percComissao">% da Comissão</option>
+                            <option value="ticketMedioComissao">Ticket Médio da Comissão</option>
+                        </select>
+                    </div>
+                    <button onclick="exportDailyViewToCSV()" style="background: var(--primary); color: white; border: none; padding: 12px 24px; border-radius: 8px; cursor: pointer; font-size: 1rem; font-weight: 600;">
+                        📥 Exportar CSV
+                    </button>
+                </div>
+                <div id="dailyViewTable" style="overflow-x: auto;"></div>
+            </div>
         </div>
     </div>
 
@@ -470,6 +492,7 @@
             initializePivotTable();
             renderDistributionAnalysis();
             renderLowCommissionAnalysis();
+            renderDailyView();
         }
 
         function populateMonthFilter() {
@@ -981,6 +1004,145 @@
 
             tableHTML += '</tbody></table></div>';
             document.getElementById('lowCommissionTable').innerHTML = tableHTML;
+        }
+
+        function renderDailyView() {
+            const metrica = document.getElementById('dailyMetric').value;
+            
+            // Agrupar dados por mês e dia
+            const meses = dashboardData.metadados.meses_disponiveis || [];
+            const dadosPorDia = {};
+
+            // Inicializar estrutura para todos os dias (1-31) e meses
+            for (let dia = 1; dia <= 31; dia++) {
+                dadosPorDia[dia] = {};
+                meses.forEach(mes => {
+                    dadosPorDia[dia][mes] = {
+                        valorPago: 0,
+                        valorComissao: 0,
+                        qtdContratos: 0
+                    };
+                });
+            }
+
+            // Preencher dados
+            filteredData.forEach(d => {
+                const data = new Date(d.DataBase);
+                const dia = data.getDate();
+                const mes = d.MesAno;
+
+                if (dadosPorDia[dia] && dadosPorDia[dia][mes]) {
+                    dadosPorDia[dia][mes].valorPago += d.ValorPago;
+                    dadosPorDia[dia][mes].valorComissao += d.ValorComissao;
+                    dadosPorDia[dia][mes].qtdContratos += 1;
+                }
+            });
+
+            // Calcular métricas derivadas
+            for (let dia = 1; dia <= 31; dia++) {
+                meses.forEach(mes => {
+                    const dados = dadosPorDia[dia][mes];
+                    dados.ticketMedio = dados.qtdContratos > 0 ? dados.valorPago / dados.qtdContratos : 0;
+                    dados.percComissao = dados.valorPago > 0 ? (dados.valorComissao / dados.valorPago) * 100 : 0;
+                    dados.ticketMedioComissao = dados.qtdContratos > 0 ? dados.valorComissao / dados.qtdContratos : 0;
+                });
+            }
+
+            // Criar tabela HTML
+            let tableHTML = '<table><thead><tr><th>Dia</th>';
+            
+            meses.forEach(mes => {
+                const [year, month] = mes.split('-');
+                tableHTML += `<th>${month}/${year}</th>`;
+            });
+            tableHTML += '</tr></thead><tbody>';
+
+            for (let dia = 1; dia <= 31; dia++) {
+                tableHTML += `<tr><td><strong>${dia}</strong></td>`;
+                
+                meses.forEach(mes => {
+                    const valor = dadosPorDia[dia][mes][metrica];
+                    let formatted;
+
+                    if (valor === 0) {
+                        formatted = '-';
+                    } else {
+                        switch(metrica) {
+                            case 'valorPago':
+                            case 'valorComissao':
+                            case 'ticketMedio':
+                            case 'ticketMedioComissao':
+                                formatted = formatCurrency(valor);
+                                break;
+                            case 'percComissao':
+                                formatted = formatPercent(valor);
+                                break;
+                            case 'qtdContratos':
+                                formatted = formatNumber(valor);
+                                break;
+                        }
+                    }
+
+                    tableHTML += `<td>${formatted}</td>`;
+                });
+                
+                tableHTML += '</tr>';
+            }
+
+            tableHTML += '</tbody></table>';
+            document.getElementById('dailyViewTable').innerHTML = tableHTML;
+
+            // Armazenar dados para exportação
+            window.dailyViewData = { dadosPorDia, meses, metrica };
+        }
+
+        function exportDailyViewToCSV() {
+            if (!window.dailyViewData) {
+                alert('Nenhum dado para exportar');
+                return;
+            }
+
+            const { dadosPorDia, meses, metrica } = window.dailyViewData;
+            
+            // Criar CSV
+            let csv = 'Dia';
+            meses.forEach(mes => {
+                const [year, month] = mes.split('-');
+                csv += `,${month}/${year}`;
+            });
+            csv += '\n';
+
+            for (let dia = 1; dia <= 31; dia++) {
+                csv += dia;
+                
+                meses.forEach(mes => {
+                    const valor = dadosPorDia[dia][mes][metrica];
+                    csv += `,${valor === 0 ? '' : valor.toFixed(2)}`;
+                });
+                
+                csv += '\n';
+            }
+
+            // Download
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            const url = URL.createObjectURL(blob);
+            
+            const metricaLabels = {
+                'valorPago': 'Valor_Pago',
+                'qtdContratos': 'Quantidade_Contratos',
+                'ticketMedio': 'Ticket_Medio',
+                'valorComissao': 'Valor_Comissao',
+                'percComissao': 'Percentual_Comissao',
+                'ticketMedioComissao': 'Ticket_Medio_Comissao'
+            };
+
+            link.setAttribute('href', url);
+            link.setAttribute('download', `visao_diaria_${metricaLabels[metrica]}_${new Date().toISOString().split('T')[0]}.csv`);
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
         }
 
         function createHistogramData(values) {
