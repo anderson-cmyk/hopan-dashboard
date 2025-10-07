@@ -548,6 +548,31 @@
             document.getElementById('loading').style.display = 'none';
             document.getElementById('content').style.display = 'block';
 
+            // Adicionar campos calculados aos dados iniciais
+            filteredData = filteredData.map(d => {
+                // Calcular Classe baseado em atraso
+                let classe;
+                if (d.Atraso < 90) {
+                    classe = 'Contact';
+                } else if (d.Atraso >= 91 && d.Atraso <= 180) {
+                    classe = 'Ativas 1';
+                } else {
+                    classe = 'Ativas 2';
+                }
+                
+                // Calcular TipoPagamento baseado em valor
+                let tipoPagamento;
+                if (d.ValorPago < 3000) {
+                    tipoPagamento = 'Parcial';
+                } else if (d.ValorPago >= 3001 && d.ValorPago <= 8000) {
+                    tipoPagamento = 'Atualização';
+                } else {
+                    tipoPagamento = 'Quitação';
+                }
+                
+                return { ...d, Classe: classe, TipoPagamento: tipoPagamento };
+            });
+
             populateMonthFilter();
             renderKPIs();
             renderFaixasAnalysis();
