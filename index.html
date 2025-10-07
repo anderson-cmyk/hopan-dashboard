@@ -386,6 +386,22 @@
                             <option value="max">Máximo</option>
                         </select>
                     </div>
+                    <div>
+                        <label style="display: block; margin-bottom: 5px; color: var(--text-secondary);">Critério:</label>
+                        <select id="pivotCriterio">
+                            <option value="all">Todos</option>
+                            <optgroup label="Classe">
+                                <option value="classe_contact">Contact (< 90 dias)</option>
+                                <option value="classe_ativas1">Ativas 1 (91-180 dias)</option>
+                                <option value="classe_ativas2">Ativas 2 (> 181 dias)</option>
+                            </optgroup>
+                            <optgroup label="Tipo de Pagamento">
+                                <option value="tipo_parcial">Parcial (< R$ 3.000)</option>
+                                <option value="tipo_atualizacao">Atualização (R$ 3.001-8.000)</option>
+                                <option value="tipo_quitacao">Quitação (> R$ 8.000)</option>
+                            </optgroup>
+                        </select>
+                    </div>
                     <div style="align-self: flex-end;">
                         <button onclick="updatePivotTable()">Atualizar Tabela</button>
                     </div>
@@ -568,6 +584,31 @@
             } else {
                 filteredData = dashboardData.dados_completos.filter(d => d.MesAno === currentMonth);
             }
+            
+            // Adicionar campos calculados: Classe e TipoPagamento
+            filteredData = filteredData.map(d => {
+                // Calcular Classe baseado em atraso
+                let classe;
+                if (d.Atraso < 90) {
+                    classe = 'Contact';
+                } else if (d.Atraso >= 91 && d.Atraso <= 180) {
+                    classe = 'Ativas 1';
+                } else {
+                    classe = 'Ativas 2';
+                }
+                
+                // Calcular TipoPagamento baseado em valor
+                let tipoPagamento;
+                if (d.ValorPago < 3000) {
+                    tipoPagamento = 'Parcial';
+                } else if (d.ValorPago >= 3001 && d.ValorPago <= 8000) {
+                    tipoPagamento = 'Atualização';
+                } else {
+                    tipoPagamento = 'Quitação';
+                }
+                
+                return { ...d, Classe: classe, TipoPagamento: tipoPagamento };
+            });
 
             renderKPIs();
             renderFaixasAnalysis();
@@ -740,7 +781,7 @@
 
         function initializePivotTable() {
             const camposNumericos = dashboardData.metadados.campos_numericos;
-            const camposCategoricos = ['FaixaAtraso', 'FaixaValor', 'MesAno'];
+            const camposCategoricos = ['FaixaAtraso', 'FaixaValor', 'MesAno', 'Classe', 'TipoPagamento'];
 
             const rowSelect = document.getElementById('pivotRow');
             const colSelect = document.getElementById('pivotCol');
@@ -767,8 +808,32 @@
             const colField = document.getElementById('pivotCol').value;
             const valueField = document.getElementById('pivotValue').value;
             const aggType = document.getElementById('pivotAgg').value;
+            const criterio = document.getElementById('pivotCriterio').value;
 
-            const data = filteredData;
+            // Aplicar filtro de critério
+            let data = filteredData;
+            if (criterio !== 'all') {
+                switch(criterio) {
+                    case 'classe_contact':
+                        data = data.filter(d => d.Classe === 'Contact');
+                        break;
+                    case 'classe_ativas1':
+                        data = data.filter(d => d.Classe === 'Ativas 1');
+                        break;
+                    case 'classe_ativas2':
+                        data = data.filter(d => d.Classe === 'Ativas 2');
+                        break;
+                    case 'tipo_parcial':
+                        data = data.filter(d => d.TipoPagamento === 'Parcial');
+                        break;
+                    case 'tipo_atualizacao':
+                        data = data.filter(d => d.TipoPagamento === 'Atualização');
+                        break;
+                    case 'tipo_quitacao':
+                        data = data.filter(d => d.TipoPagamento === 'Quitação');
+                        break;
+                }
+            }
             const pivot = {};
             const rowValues = new Set();
             const colValues = new Set();
