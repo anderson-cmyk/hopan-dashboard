@@ -172,6 +172,26 @@
             border-bottom: 1px solid var(--border);
         }
 
+        .cell-with-bar {
+            position: relative;
+            background: linear-gradient(90deg, 
+                rgba(52, 199, 89, 0.15) 0%, 
+                rgba(52, 199, 89, 0.15) var(--bar-width, 0%), 
+                transparent var(--bar-width, 0%)
+            );
+        }
+
+        .cell-value {
+            position: relative;
+            z-index: 1;
+        }
+
+        .cell-percent {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            margin-left: 4px;
+        }
+
         th {
             font-weight: 600;
             color: var(--text-secondary);
@@ -482,6 +502,24 @@
             return new Intl.NumberFormat('pt-BR').format(value);
         }
 
+        // Função para criar célula com barra de representatividade
+        function createCellWithBar(value, formattedValue, qtdContratos, totalBase) {
+            const percent = totalBase > 0 ? (qtdContratos / totalBase) * 100 : 0;
+            const barWidth = Math.min(percent, 100);
+            
+            return `<td class="cell-with-bar" style="--bar-width: ${barWidth}%">
+                <span class="cell-value">${formattedValue} <span class="cell-percent">(${percent.toFixed(1)}%)</span></span>
+            </td>`;
+        }
+
+        // Calcular total de contratos por mês
+        function getTotalContractsByMonth(mes = null) {
+            if (mes) {
+                return filteredData.filter(d => d.MesAno === mes).length;
+            }
+            return filteredData.length;
+        }
+
         function initializeDashboard() {
             document.getElementById('loading').style.display = 'none';
             document.getElementById('content').style.display = 'block';
@@ -640,8 +678,9 @@
                 }
             });
 
-            // Tabela
-            const tableHTML = `
+            // Tabela com barras de representatividade
+            const totalBase = getTotalContractsByMonth();
+            let tableHTML = `
                 <table>
                     <thead>
                         <tr>
@@ -652,16 +691,31 @@
                             <th>% Comissão</th>
                         </tr>
                     </thead>
-                    <tbody>
-                        ${faixasArray.map(f => `
-                            <tr>
-                                <td><span class="badge ${getBadgeClass(f.faixa)}">${f.faixa}</span></td>
-                                <td>${formatNumber(f.ops)}</td>
-                                <td>${formatCurrency(f.pago)}</td>
-                                <td>${formatCurrency(f.comissao)}</td>
-                                <td>${formatPercent(f.perc)}</td>
-                            </tr>
-                        `).join('')}
+                    <tbody>`;
+            
+            faixasArray.forEach(f => {
+                const percent = totalBase > 0 ? (f.ops / totalBase) * 100 : 0;
+                const barWidth = Math.min(percent, 100);
+                
+                tableHTML += `
+                    <tr>
+                        <td><span class="badge ${getBadgeClass(f.faixa)}">${f.faixa}</span></td>
+                        <td class="cell-with-bar" style="--bar-width: ${barWidth}%">
+                            <span class="cell-value">${formatNumber(f.ops)} <span class="cell-percent">(${percent.toFixed(1)}%)</span></span>
+                        </td>
+                        <td class="cell-with-bar" style="--bar-width: ${barWidth}%">
+                            <span class="cell-value">${formatCurrency(f.pago)} <span class="cell-percent">(${percent.toFixed(1)}%)</span></span>
+                        </td>
+                        <td class="cell-with-bar" style="--bar-width: ${barWidth}%">
+                            <span class="cell-value">${formatCurrency(f.comissao)} <span class="cell-percent">(${percent.toFixed(1)}%)</span></span>
+                        </td>
+                        <td class="cell-with-bar" style="--bar-width: ${barWidth}%">
+                            <span class="cell-value">${formatPercent(f.perc)} <span class="cell-percent">(${percent.toFixed(1)}%)</span></span>
+                        </td>
+                    </tr>`;
+            });
+            
+            tableHTML += `
                     </tbody>
                 </table>
             `;
@@ -781,6 +835,9 @@
             });
             tableHTML += '</tr></thead><tbody>';
 
+            // Calcular total base considerando se há mês nas dimensões
+            const hasMesInDimensions = rowField === 'MesAno' || colField === 'MesAno';
+            
             sortedRows.forEach(row => {
                 tableHTML += `<tr><th>${row}</th>`;
                 sortedCols.forEach(col => {
@@ -791,7 +848,26 @@
                         : valueField.includes('Perc') 
                         ? formatPercent(value)
                         : formatNumber(value);
-                    tableHTML += `<td>${formatted}</td>`;
+                    
+                    // Calcular representatividade
+                    let totalBase;
+                    if (hasMesInDimensions) {
+                        // Se tem mês na dimensão, usar total do mês específico
+                        const mes = rowField === 'MesAno' ? row : (colField === 'MesAno' ? col : null);
+                        totalBase = mes ? getTotalContractsByMonth(mes) : getTotalContractsByMonth();
+                    } else {
+                        totalBase = getTotalContractsByMonth();
+                    }
+                    
+                    // Contar contratos para esta célula
+                    const cellData = data.filter(d => d[rowField] === row && d[colField] === col);
+                    const qtdContratos = cellData.length;
+                    const percent = totalBase > 0 ? (qtdContratos / totalBase) * 100 : 0;
+                    const barWidth = Math.min(percent, 100);
+                    
+                    tableHTML += `<td class="cell-with-bar" style="--bar-width: ${barWidth}%">
+                        <span class="cell-value">${formatted} <span class="cell-percent">(${percent.toFixed(1)}%)</span></span>
+                    </td>`;
                 });
                 tableHTML += '</tr>';
             });
@@ -994,32 +1070,52 @@
                 // Linha 1: Quantidade de Contratos
                 tableHTML += `<tr><td rowspan="4"><strong>${faixa.label}</strong></td><td>Qtd. Contratos</td>`;
                 meses.forEach(mes => {
-                    const valor = analise[mes][faixa.label].qtdContratos;
-                    tableHTML += `<td>${formatNumber(valor)}</td>`;
+                    const dados = analise[mes][faixa.label];
+                    const totalMes = getTotalContractsByMonth(mes);
+                    const percent = totalMes > 0 ? (dados.qtdContratos / totalMes) * 100 : 0;
+                    const barWidth = Math.min(percent, 100);
+                    tableHTML += `<td class="cell-with-bar" style="--bar-width: ${barWidth}%">
+                        <span class="cell-value">${formatNumber(dados.qtdContratos)} <span class="cell-percent">(${percent.toFixed(1)}%)</span></span>
+                    </td>`;
                 });
                 tableHTML += '</tr>';
 
                 // Linha 2: % da Base
                 tableHTML += `<tr><td>% da Base</td>`;
                 meses.forEach(mes => {
-                    const valor = analise[mes][faixa.label].percBase;
-                    tableHTML += `<td>${formatPercent(valor)}</td>`;
+                    const dados = analise[mes][faixa.label];
+                    const totalMes = getTotalContractsByMonth(mes);
+                    const percent = totalMes > 0 ? (dados.qtdContratos / totalMes) * 100 : 0;
+                    const barWidth = Math.min(percent, 100);
+                    tableHTML += `<td class="cell-with-bar" style="--bar-width: ${barWidth}%">
+                        <span class="cell-value">${formatPercent(dados.percBase)} <span class="cell-percent">(${percent.toFixed(1)}%)</span></span>
+                    </td>`;
                 });
                 tableHTML += '</tr>';
 
                 // Linha 3: Valor Pago
                 tableHTML += `<tr><td>Valor Pago</td>`;
                 meses.forEach(mes => {
-                    const valor = analise[mes][faixa.label].valorPago;
-                    tableHTML += `<td>${formatCurrency(valor)}</td>`;
+                    const dados = analise[mes][faixa.label];
+                    const totalMes = getTotalContractsByMonth(mes);
+                    const percent = totalMes > 0 ? (dados.qtdContratos / totalMes) * 100 : 0;
+                    const barWidth = Math.min(percent, 100);
+                    tableHTML += `<td class="cell-with-bar" style="--bar-width: ${barWidth}%">
+                        <span class="cell-value">${formatCurrency(dados.valorPago)} <span class="cell-percent">(${percent.toFixed(1)}%)</span></span>
+                    </td>`;
                 });
                 tableHTML += '</tr>';
 
                 // Linha 4: Valor Comissão
                 tableHTML += `<tr><td>Valor Comissão</td>`;
                 meses.forEach(mes => {
-                    const valor = analise[mes][faixa.label].valorComissao;
-                    tableHTML += `<td>${formatCurrency(valor)}</td>`;
+                    const dados = analise[mes][faixa.label];
+                    const totalMes = getTotalContractsByMonth(mes);
+                    const percent = totalMes > 0 ? (dados.qtdContratos / totalMes) * 100 : 0;
+                    const barWidth = Math.min(percent, 100);
+                    tableHTML += `<td class="cell-with-bar" style="--bar-width: ${barWidth}%">
+                        <span class="cell-value">${formatCurrency(dados.valorComissao)} <span class="cell-percent">(${percent.toFixed(1)}%)</span></span>
+                    </td>`;
                 });
                 tableHTML += '</tr>';
             });
@@ -1083,11 +1179,13 @@
                 tableHTML += `<tr><td><strong>${dia}</strong></td>`;
                 
                 meses.forEach(mes => {
-                    const valor = dadosPorDia[dia][mes][metrica];
+                    const dados = dadosPorDia[dia][mes];
+                    const valor = dados[metrica];
+                    const qtdContratos = dados.qtdContratos;
                     let formatted;
 
-                    if (valor === 0) {
-                        formatted = '-';
+                    if (valor === 0 || qtdContratos === 0) {
+                        tableHTML += `<td>-</td>`;
                     } else {
                         switch(metrica) {
                             case 'valorPago':
@@ -1103,9 +1201,16 @@
                                 formatted = formatNumber(valor);
                                 break;
                         }
+                        
+                        // Calcular representatividade baseada no mês da coluna
+                        const totalMes = getTotalContractsByMonth(mes);
+                        const percent = totalMes > 0 ? (qtdContratos / totalMes) * 100 : 0;
+                        const barWidth = Math.min(percent, 100);
+                        
+                        tableHTML += `<td class="cell-with-bar" style="--bar-width: ${barWidth}%">
+                            <span class="cell-value">${formatted} <span class="cell-percent">(${percent.toFixed(1)}%)</span></span>
+                        </td>`;
                     }
-
-                    tableHTML += `<td>${formatted}</td>`;
                 });
                 
                 tableHTML += '</tr>';
