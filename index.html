@@ -175,8 +175,8 @@
         .cell-with-bar {
             position: relative;
             background: linear-gradient(90deg, 
-                rgba(0, 122, 255, 0.15) 0%, 
-                rgba(0, 122, 255, 0.15) var(--bar-width, 0%), 
+                rgba(0, 122, 255, 0.25) 0%, 
+                rgba(0, 122, 255, 0.25) var(--bar-width, 0%), 
                 transparent var(--bar-width, 0%)
             );
         }
@@ -502,9 +502,9 @@
             return new Intl.NumberFormat('pt-BR').format(value);
         }
 
-        // Função para criar célula com barra de representatividade
-        function createCellWithBar(value, formattedValue, qtdContratos, totalBase) {
-            const percent = totalBase > 0 ? (qtdContratos / totalBase) * 100 : 0;
+        // Função para criar célula com barra de representatividade baseada em valor pago
+        function createCellWithBar(value, formattedValue, valorPago, totalValorBase) {
+            const percent = totalValorBase > 0 ? (valorPago / totalValorBase) * 100 : 0;
             const barWidth = Math.min(percent, 100);
             
             return `<td class="cell-with-bar" style="--bar-width: ${barWidth}%">
@@ -512,7 +512,15 @@
             </td>`;
         }
 
-        // Calcular total de contratos por mês
+        // Calcular total de valor pago por mês
+        function getTotalValueByMonth(mes = null) {
+            if (mes) {
+                return filteredData.filter(d => d.MesAno === mes).reduce((sum, d) => sum + d.ValorPago, 0);
+            }
+            return filteredData.reduce((sum, d) => sum + d.ValorPago, 0);
+        }
+        
+        // Manter função antiga para compatibilidade (retorna quantidade)
         function getTotalContractsByMonth(mes = null) {
             if (mes) {
                 return filteredData.filter(d => d.MesAno === mes).length;
@@ -678,8 +686,8 @@
                 }
             });
 
-            // Tabela com barras de representatividade
-            const totalBase = getTotalContractsByMonth();
+            // Tabela com barras de representatividade baseadas em valor pago
+            const totalValorBase = getTotalValueByMonth();
             let tableHTML = `
                 <table>
                     <thead>
@@ -694,7 +702,7 @@
                     <tbody>`;
             
             faixasArray.forEach(f => {
-                const percent = totalBase > 0 ? (f.ops / totalBase) * 100 : 0;
+                const percent = totalValorBase > 0 ? (f.pago / totalValorBase) * 100 : 0;
                 const barWidth = Math.min(percent, 100);
                 
                 tableHTML += `
@@ -850,19 +858,19 @@
                         : formatNumber(value);
                     
                     // Calcular representatividade
-                    let totalBase;
+                    let totalValorBase;
                     if (hasMesInDimensions) {
                         // Se tem mês na dimensão, usar total do mês específico
                         const mes = rowField === 'MesAno' ? row : (colField === 'MesAno' ? col : null);
-                        totalBase = mes ? getTotalContractsByMonth(mes) : getTotalContractsByMonth();
+                        totalValorBase = mes ? getTotalValueByMonth(mes) : getTotalValueByMonth();
                     } else {
-                        totalBase = getTotalContractsByMonth();
+                        totalValorBase = getTotalValueByMonth();
                     }
                     
-                    // Contar contratos para esta célula
+                    // Calcular valor pago para esta célula
                     const cellData = data.filter(d => d[rowField] === row && d[colField] === col);
-                    const qtdContratos = cellData.length;
-                    const percent = totalBase > 0 ? (qtdContratos / totalBase) * 100 : 0;
+                    const valorPagoCelula = cellData.reduce((sum, d) => sum + d.ValorPago, 0);
+                    const percent = totalValorBase > 0 ? (valorPagoCelula / totalValorBase) * 100 : 0;
                     const barWidth = Math.min(percent, 100);
                     
                     tableHTML += `<td class="cell-with-bar" style="--bar-width: ${barWidth}%">
@@ -1071,8 +1079,8 @@
                 tableHTML += `<tr><td rowspan="4"><strong>${faixa.label}</strong></td><td>Qtd. Contratos</td>`;
                 meses.forEach(mes => {
                     const dados = analise[mes][faixa.label];
-                    const totalMes = getTotalContractsByMonth(mes);
-                    const percent = totalMes > 0 ? (dados.qtdContratos / totalMes) * 100 : 0;
+                    const totalValorMes = getTotalValueByMonth(mes);
+                    const percent = totalValorMes > 0 ? (dados.valorPago / totalValorMes) * 100 : 0;
                     const barWidth = Math.min(percent, 100);
                     tableHTML += `<td class="cell-with-bar" style="--bar-width: ${barWidth}%">
                         <span class="cell-value">${formatNumber(dados.qtdContratos)} <span class="cell-percent">(${percent.toFixed(1)}%)</span></span>
@@ -1084,8 +1092,8 @@
                 tableHTML += `<tr><td>% da Base</td>`;
                 meses.forEach(mes => {
                     const dados = analise[mes][faixa.label];
-                    const totalMes = getTotalContractsByMonth(mes);
-                    const percent = totalMes > 0 ? (dados.qtdContratos / totalMes) * 100 : 0;
+                    const totalValorMes = getTotalValueByMonth(mes);
+                    const percent = totalValorMes > 0 ? (dados.valorPago / totalValorMes) * 100 : 0;
                     const barWidth = Math.min(percent, 100);
                     tableHTML += `<td class="cell-with-bar" style="--bar-width: ${barWidth}%">
                         <span class="cell-value">${formatPercent(dados.percBase)} <span class="cell-percent">(${percent.toFixed(1)}%)</span></span>
@@ -1097,8 +1105,8 @@
                 tableHTML += `<tr><td>Valor Pago</td>`;
                 meses.forEach(mes => {
                     const dados = analise[mes][faixa.label];
-                    const totalMes = getTotalContractsByMonth(mes);
-                    const percent = totalMes > 0 ? (dados.qtdContratos / totalMes) * 100 : 0;
+                    const totalValorMes = getTotalValueByMonth(mes);
+                    const percent = totalValorMes > 0 ? (dados.valorPago / totalValorMes) * 100 : 0;
                     const barWidth = Math.min(percent, 100);
                     tableHTML += `<td class="cell-with-bar" style="--bar-width: ${barWidth}%">
                         <span class="cell-value">${formatCurrency(dados.valorPago)} <span class="cell-percent">(${percent.toFixed(1)}%)</span></span>
@@ -1110,8 +1118,8 @@
                 tableHTML += `<tr><td>Valor Comissão</td>`;
                 meses.forEach(mes => {
                     const dados = analise[mes][faixa.label];
-                    const totalMes = getTotalContractsByMonth(mes);
-                    const percent = totalMes > 0 ? (dados.qtdContratos / totalMes) * 100 : 0;
+                    const totalValorMes = getTotalValueByMonth(mes);
+                    const percent = totalValorMes > 0 ? (dados.valorPago / totalValorMes) * 100 : 0;
                     const barWidth = Math.min(percent, 100);
                     tableHTML += `<td class="cell-with-bar" style="--bar-width: ${barWidth}%">
                         <span class="cell-value">${formatCurrency(dados.valorComissao)} <span class="cell-percent">(${percent.toFixed(1)}%)</span></span>
@@ -1202,9 +1210,9 @@
                                 break;
                         }
                         
-                        // Calcular representatividade baseada no mês da coluna
-                        const totalMes = getTotalContractsByMonth(mes);
-                        const percent = totalMes > 0 ? (qtdContratos / totalMes) * 100 : 0;
+                        // Calcular representatividade baseada no valor pago do mês da coluna
+                        const totalValorMes = getTotalValueByMonth(mes);
+                        const percent = totalValorMes > 0 ? (valorPago / totalValorMes) * 100 : 0;
                         const barWidth = Math.min(percent, 100);
                         
                         tableHTML += `<td class="cell-with-bar" style="--bar-width: ${barWidth}%">
