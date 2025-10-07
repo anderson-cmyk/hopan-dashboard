@@ -1212,7 +1212,7 @@
                         
                         // Calcular representatividade baseada no valor pago do mês da coluna
                         const totalValorMes = getTotalValueByMonth(mes);
-                        const percent = totalValorMes > 0 ? (valorPago / totalValorMes) * 100 : 0;
+                        const percent = totalValorMes > 0 ? (dados.valorPago / totalValorMes) * 100 : 0;
                         const barWidth = Math.min(percent, 100);
                         
                         tableHTML += `<td class="cell-with-bar" style="--bar-width: ${barWidth}%">
