@@ -750,8 +750,30 @@
                 aggregated[key] = result;
             }
 
-            const sortedRows = Array.from(rowValues).sort();
-            const sortedCols = Array.from(colValues).sort();
+            // Função de ordenação customizada para faixas
+            const customSort = (a, b, field) => {
+                if (field === 'FaixaAtraso') {
+                    const ordemAtraso = ['0-20 dias', '21-30 dias', '31-60 dias', '61-90 dias', 
+                                        '91-180 dias', '181-360 dias', 'Maior que 360 dias'];
+                    return ordemAtraso.indexOf(a) - ordemAtraso.indexOf(b);
+                } else if (field === 'FaixaValor') {
+                    const ordemValor = [
+                        '1. Até R$ 1.000',
+                        '2. R$ 1.001 a R$ 1.500',
+                        '3. R$ 1.501 a R$ 2.000',
+                        '4. R$ 2.001 a R$ 3.000',
+                        '5. R$ 3.001 a R$ 5.000',
+                        '6. R$ 5.001 a R$ 10.000',
+                        '7. Maior que R$ 10.000'
+                    ];
+                    return ordemValor.indexOf(a) - ordemValor.indexOf(b);
+                } else {
+                    return a.localeCompare(b);
+                }
+            };
+
+            const sortedRows = Array.from(rowValues).sort((a, b) => customSort(a, b, rowField));
+            const sortedCols = Array.from(colValues).sort((a, b) => customSort(a, b, colField));
 
             let tableHTML = '<table class="pivot-table"><thead><tr><th></th>';
             sortedCols.forEach(col => {
