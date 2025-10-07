@@ -491,10 +491,39 @@
         let currentMonth = 'all';
 
         // Carregar dados
+        // Função auxiliar para adicionar campos calculados
+        function addCalculatedFields(data) {
+            return data.map(d => {
+                // Calcular Classe baseado em atraso
+                let classe;
+                if (d.Atraso < 90) {
+                    classe = 'Contact';
+                } else if (d.Atraso >= 91 && d.Atraso <= 180) {
+                    classe = 'Ativas 1';
+                } else {
+                    classe = 'Ativas 2';
+                }
+                
+                // Calcular TipoPagamento baseado em valor
+                let tipoPagamento;
+                if (d.ValorPago < 3000) {
+                    tipoPagamento = 'Parcial';
+                } else if (d.ValorPago >= 3001 && d.ValorPago <= 8000) {
+                    tipoPagamento = 'Atualização';
+                } else {
+                    tipoPagamento = 'Quitação';
+                }
+                
+                return { ...d, Classe: classe, TipoPagamento: tipoPagamento };
+            });
+        }
+
         async function loadData() {
             try {
                 const response = await fetch('dashboard_data.json');
                 dashboardData = await response.json();
+                // Adicionar campos calculados logo após carregar
+                dashboardData.dados_completos = addCalculatedFields(dashboardData.dados_completos);
                 filteredData = dashboardData.dados_completos;
                 initializeDashboard();
             } catch (error) {
@@ -548,31 +577,7 @@
             document.getElementById('loading').style.display = 'none';
             document.getElementById('content').style.display = 'block';
 
-            // Adicionar campos calculados aos dados iniciais
-            filteredData = filteredData.map(d => {
-                // Calcular Classe baseado em atraso
-                let classe;
-                if (d.Atraso < 90) {
-                    classe = 'Contact';
-                } else if (d.Atraso >= 91 && d.Atraso <= 180) {
-                    classe = 'Ativas 1';
-                } else {
-                    classe = 'Ativas 2';
-                }
-                
-                // Calcular TipoPagamento baseado em valor
-                let tipoPagamento;
-                if (d.ValorPago < 3000) {
-                    tipoPagamento = 'Parcial';
-                } else if (d.ValorPago >= 3001 && d.ValorPago <= 8000) {
-                    tipoPagamento = 'Atualização';
-                } else {
-                    tipoPagamento = 'Quitação';
-                }
-                
-                return { ...d, Classe: classe, TipoPagamento: tipoPagamento };
-            });
-
+            // Campos calculados já foram adicionados em loadData()
             populateMonthFilter();
             renderKPIs();
             renderFaixasAnalysis();
@@ -610,30 +615,7 @@
                 filteredData = dashboardData.dados_completos.filter(d => d.MesAno === currentMonth);
             }
             
-            // Adicionar campos calculados: Classe e TipoPagamento
-            filteredData = filteredData.map(d => {
-                // Calcular Classe baseado em atraso
-                let classe;
-                if (d.Atraso < 90) {
-                    classe = 'Contact';
-                } else if (d.Atraso >= 91 && d.Atraso <= 180) {
-                    classe = 'Ativas 1';
-                } else {
-                    classe = 'Ativas 2';
-                }
-                
-                // Calcular TipoPagamento baseado em valor
-                let tipoPagamento;
-                if (d.ValorPago < 3000) {
-                    tipoPagamento = 'Parcial';
-                } else if (d.ValorPago >= 3001 && d.ValorPago <= 8000) {
-                    tipoPagamento = 'Atualização';
-                } else {
-                    tipoPagamento = 'Quitação';
-                }
-                
-                return { ...d, Classe: classe, TipoPagamento: tipoPagamento };
-            });
+            // Campos calculados já existem em dashboardData.dados_completos
 
             renderKPIs();
             renderFaixasAnalysis();
