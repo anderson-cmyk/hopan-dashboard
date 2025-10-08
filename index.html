@@ -357,6 +357,14 @@
                             <option value="2q">2ª Quinzena</option>
                         </select>
                     </div>
+                    <div>
+                        <span class="master-filter-label">💳 Canal de Pagamento:</span>
+                        <select id="masterCanalFilter" onchange="applyMasterFilter()">
+                            <option value="all">Todos</option>
+                            <option value="indireto">Indireto</option>
+                            <option value="direto">Direto</option>
+                        </select>
+                    </div>
                 </div>
             </div>
 
@@ -551,10 +559,18 @@
                     tipoPagamento = 'Quitação';
                 }
                 
+                // Calcular CanalPagamento baseado em % de comissão
+                let canalPagamento;
+                if (d.PercComissao >= 3.6 && d.PercComissao <= 3.8) {
+                    canalPagamento = 'Indireto';
+                } else {
+                    canalPagamento = 'Direto';
+                }
+                
                 // Definir Origem (todos os dados atuais são 2ª Quinzena)
                 const origem = d.Origem || '2q';
                 
-                return { ...d, Classe: classe, TipoPagamento: tipoPagamento, Origem: origem };
+                return { ...d, Classe: classe, TipoPagamento: tipoPagamento, CanalPagamento: canalPagamento, Origem: origem };
             });
         }
 
@@ -649,6 +665,7 @@
         function applyMasterFilter() {
             currentMonth = document.getElementById('masterMonthFilter').value;
             const currentOrigem = document.getElementById('masterOrigemFilter').value;
+            const currentCanal = document.getElementById('masterCanalFilter').value;
             
             // Filtrar por mês
             if (currentMonth === 'all') {
@@ -660,6 +677,15 @@
             // Filtrar por origem
             if (currentOrigem !== 'all') {
                 filteredData = filteredData.filter(d => d.Origem === currentOrigem);
+            }
+            
+            // Filtrar por canal de pagamento
+            if (currentCanal !== 'all') {
+                if (currentCanal === 'indireto') {
+                    filteredData = filteredData.filter(d => d.CanalPagamento === 'Indireto');
+                } else if (currentCanal === 'direto') {
+                    filteredData = filteredData.filter(d => d.CanalPagamento === 'Direto');
+                }
             }
             
             // Campos calculados já existem em dashboardData.dados_completos
@@ -1480,7 +1506,7 @@
             const rowLabel = fieldLabels[rowField] || rowField;
             const colLabel = fieldLabels[colField] || colField;
             const criterioTexto = criterioLabels[criterio] || criterio;
-            let csv = `Proposta,Cliente,Valor Pago,Valor Comissão,Data,Linha (${rowLabel}),Coluna (${colLabel}),Critério\n`;
+            let csv = `Proposta,Cliente,Valor Pago,Valor Comissão,Data,Linha (${rowLabel}),Coluna (${colLabel}),Critério,Canal de Pagamento\n`;
             
             // Adicionar dados
             dataToExport.forEach(d => {
@@ -1491,8 +1517,9 @@
                 const data = d.Data_Base || '';
                 const linhaValor = d[rowField] || '';
                 const colunaValor = d[colField] || '';
+                const canalPagamento = d.CanalPagamento || '';
                 
-                csv += `${proposta},"${cliente}",${valorPago},${valorComissao},${data},"${linhaValor}","${colunaValor}","${criterioTexto}"\n`;
+                csv += `${proposta},"${cliente}",${valorPago},${valorComissao},${data},"${linhaValor}","${colunaValor}","${criterioTexto}","${canalPagamento}"\n`;
             });
             
             // Download
