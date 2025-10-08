@@ -674,9 +674,13 @@
                 filteredData = dashboardData.dados_completos.filter(d => d.MesAno === currentMonth);
             }
             
-            // Filtrar por origem
+            // Filtrar por origem/quinzena
             if (currentOrigem !== 'all') {
-                filteredData = filteredData.filter(d => d.Origem === currentOrigem);
+                if (currentOrigem === '1q') {
+                    filteredData = filteredData.filter(d => d.Origem === '1ª Quinzena');
+                } else if (currentOrigem === '2q') {
+                    filteredData = filteredData.filter(d => d.Origem === '2ª Quinzena');
+                }
             }
             
             // Filtrar por canal de pagamento
