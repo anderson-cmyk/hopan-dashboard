@@ -1423,6 +1423,8 @@
 
         function exportPivotDataToCSV() {
             const criterio = document.getElementById('pivotCriterio').value;
+            const rowField = document.getElementById('pivotRow').value;
+            const colField = document.getElementById('pivotCol').value;
             
             // Aplicar mesmo filtro de critério usado na tabela dinâmica
             let dataToExport = filteredData;
@@ -1454,8 +1456,19 @@
                 return;
             }
             
-            // Criar CSV com cabeçalho
-            let csv = 'Proposta,Cliente,Valor Pago,Valor Comissão,Data\n';
+            // Mapear nomes dos campos para labels amigáveis
+            const fieldLabels = {
+                'FaixaAtraso': 'Faixa de Atraso',
+                'FaixaValor': 'Faixa de Valor',
+                'MesAno': 'Mês/Ano',
+                'Classe': 'Classe',
+                'TipoPagamento': 'Tipo de Pagamento'
+            };
+            
+            // Criar CSV com cabeçalho dinâmico
+            const rowLabel = fieldLabels[rowField] || rowField;
+            const colLabel = fieldLabels[colField] || colField;
+            let csv = `Proposta,Cliente,Valor Pago,Valor Comissão,Data,Linha (${rowLabel}),Coluna (${colLabel})\n`;
             
             // Adicionar dados
             dataToExport.forEach(d => {
@@ -1464,8 +1477,10 @@
                 const valorPago = d.ValorPago.toFixed(2);
                 const valorComissao = d.ValorComissao.toFixed(2);
                 const data = d.Data_Base || '';
+                const linhaValor = d[rowField] || '';
+                const colunaValor = d[colField] || '';
                 
-                csv += `${proposta},"${cliente}",${valorPago},${valorComissao},${data}\n`;
+                csv += `${proposta},"${cliente}",${valorPago},${valorComissao},${data},"${linhaValor}","${colunaValor}"\n`;
             });
             
             // Download
