@@ -417,6 +417,11 @@
                     <div style="align-self: flex-end;">
                         <button onclick="updatePivotTable()">Atualizar Tabela</button>
                     </div>
+                    <div style="align-self: flex-end;">
+                        <button onclick="exportPivotDataToCSV()" style="background: var(--success); color: white; border: none; padding: 12px 24px; border-radius: 8px; cursor: pointer; font-size: 1rem; font-weight: 600;">
+                            📥 Exportar Dados Analíticos
+                        </button>
+                    </div>
                 </div>
                 <div class="pivot-table-container" id="pivotTableContainer"></div>
             </div>
@@ -1410,6 +1415,67 @@
 
             link.setAttribute('href', url);
             link.setAttribute('download', `visao_diaria_${metricaLabels[metrica]}_${new Date().toISOString().split('T')[0]}.csv`);
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        function exportPivotDataToCSV() {
+            const criterio = document.getElementById('pivotCriterio').value;
+            
+            // Aplicar mesmo filtro de critério usado na tabela dinâmica
+            let dataToExport = filteredData;
+            if (criterio !== 'all') {
+                switch(criterio) {
+                    case 'classe_contact':
+                        dataToExport = dataToExport.filter(d => d.Classe === 'Contact');
+                        break;
+                    case 'classe_ativas1':
+                        dataToExport = dataToExport.filter(d => d.Classe === 'Ativas 1');
+                        break;
+                    case 'classe_ativas2':
+                        dataToExport = dataToExport.filter(d => d.Classe === 'Ativas 2');
+                        break;
+                    case 'tipo_parcial':
+                        dataToExport = dataToExport.filter(d => d.TipoPagamento === 'Parcial');
+                        break;
+                    case 'tipo_atualizacao':
+                        dataToExport = dataToExport.filter(d => d.TipoPagamento === 'Atualização');
+                        break;
+                    case 'tipo_quitacao':
+                        dataToExport = dataToExport.filter(d => d.TipoPagamento === 'Quitação');
+                        break;
+                }
+            }
+            
+            if (dataToExport.length === 0) {
+                alert('Nenhum dado para exportar com os filtros selecionados');
+                return;
+            }
+            
+            // Criar CSV com cabeçalho
+            let csv = 'Proposta,Cliente,Valor Pago,Valor Comissão,Data\n';
+            
+            // Adicionar dados
+            dataToExport.forEach(d => {
+                const proposta = d.Prop || '';
+                const cliente = d.Cliente || '';
+                const valorPago = d.ValorPago.toFixed(2);
+                const valorComissao = d.ValorComissao.toFixed(2);
+                const data = d.Data_Base || '';
+                
+                csv += `${proposta},"${cliente}",${valorPago},${valorComissao},${data}\n`;
+            });
+            
+            // Download
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            const url = URL.createObjectURL(blob);
+            
+            const criterioLabel = criterio === 'all' ? 'todos' : criterio.replace('_', '-');
+            link.setAttribute('href', url);
+            link.setAttribute('download', `dados_analiticos_${criterioLabel}_${new Date().toISOString().split('T')[0]}.csv`);
             link.style.visibility = 'hidden';
             document.body.appendChild(link);
             link.click();
