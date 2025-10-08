@@ -340,12 +340,24 @@
         </div>
 
         <div id="content" style="display: none;">
-            <!-- Filtro Master por Mês -->
+            <!-- Filtros Master -->
             <div class="master-filter">
-                <span class="master-filter-label">🔍 Filtrar por Mês:</span>
-                <select id="masterMonthFilter" onchange="applyMasterFilter()">
-                    <option value="all">Todos os Meses</option>
-                </select>
+                <div style="display: flex; gap: 20px; align-items: center; flex-wrap: wrap;">
+                    <div>
+                        <span class="master-filter-label">🔍 Filtrar por Mês:</span>
+                        <select id="masterMonthFilter" onchange="applyMasterFilter()">
+                            <option value="all">Todos os Meses</option>
+                        </select>
+                    </div>
+                    <div>
+                        <span class="master-filter-label">📂 Filtrar por Origem:</span>
+                        <select id="masterOrigemFilter" onchange="applyMasterFilter()">
+                            <option value="all">Todos</option>
+                            <option value="1q">1ª Quinzena</option>
+                            <option value="2q">2ª Quinzena</option>
+                        </select>
+                    </div>
+                </div>
             </div>
 
             <!-- KPIs Principais -->
@@ -482,6 +494,26 @@
                 </div>
                 <div id="dailyViewTable" style="overflow-x: auto;"></div>
             </div>
+
+            <!-- Seção 7: Cardápio HO -->
+            <div class="section">
+                <h2 class="section-title">📋 Cardápio de HO Disponíveis</h2>
+                <div style="background: var(--bg-tertiary); border-radius: 12px; padding: 30px; text-align: center;">
+                    <p style="font-size: 1.1rem; color: var(--text-secondary); margin-bottom: 20px;">
+                        Consulte o cardápio completo de operações HO (Honorários) disponíveis para análise.
+                    </p>
+                    <a href="https://pan-autos.manus.space/" target="_blank" 
+                       style="display: inline-block; background: linear-gradient(135deg, var(--primary), #0066cc); 
+                              color: white; padding: 15px 40px; border-radius: 12px; text-decoration: none; 
+                              font-size: 1.1rem; font-weight: 600; box-shadow: 0 4px 12px rgba(0, 122, 255, 0.3);
+                              transition: all 0.3s ease;">
+                        🔗 Acessar Cardápio HO
+                    </a>
+                    <p style="font-size: 0.9rem; color: var(--text-secondary); margin-top: 15px;">
+                        O link abrirá em uma nova aba
+                    </p>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -514,7 +546,10 @@
                     tipoPagamento = 'Quitação';
                 }
                 
-                return { ...d, Classe: classe, TipoPagamento: tipoPagamento };
+                // Definir Origem (todos os dados atuais são 2ª Quinzena)
+                const origem = d.Origem || '2q';
+                
+                return { ...d, Classe: classe, TipoPagamento: tipoPagamento, Origem: origem };
             });
         }
 
@@ -608,11 +643,18 @@
 
         function applyMasterFilter() {
             currentMonth = document.getElementById('masterMonthFilter').value;
+            const currentOrigem = document.getElementById('masterOrigemFilter').value;
             
+            // Filtrar por mês
             if (currentMonth === 'all') {
                 filteredData = dashboardData.dados_completos;
             } else {
                 filteredData = dashboardData.dados_completos.filter(d => d.MesAno === currentMonth);
+            }
+            
+            // Filtrar por origem
+            if (currentOrigem !== 'all') {
+                filteredData = filteredData.filter(d => d.Origem === currentOrigem);
             }
             
             // Campos calculados já existem em dashboardData.dados_completos
