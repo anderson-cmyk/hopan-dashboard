@@ -850,6 +850,21 @@
                     </tr>`;
             });
             
+            // Calcular totais
+            const totalOps = faixasArray.reduce((sum, f) => sum + f.ops, 0);
+            const totalPago = faixasArray.reduce((sum, f) => sum + f.pago, 0);
+            const totalComissao = faixasArray.reduce((sum, f) => sum + f.comissao, 0);
+            
+            // Linha de TOTAL
+            tableHTML += `
+                <tr style="background: var(--primary); color: white; font-weight: bold; border-top: 3px solid var(--success);">
+                    <td>TOTAL</td>
+                    <td><span class="cell-value">${formatNumber(totalOps)}</span></td>
+                    <td><span class="cell-value">${formatCurrency(totalPago)}</span></td>
+                    <td><span class="cell-value">${formatCurrency(totalComissao)}</span></td>
+                    <td><span class="cell-value">-</span></td>
+                </tr>`;
+            
             tableHTML += `
                     </tbody>
                 </table>
@@ -1055,12 +1070,12 @@
                 // Total da linha
                 const rowTotal = rowTotals[row];
                 let formattedRowTotal;
-                if (valueField === 'PercComissao') {
-                    formattedRowTotal = formatPercent(rowTotal);
+                
+                // Não mostrar total para PercComissao (não faz sentido somar percentuais)
+                if (valueField === 'PercComissao' || valueField.includes('Perc')) {
+                    formattedRowTotal = '-';
                 } else if (valueField.includes('Valor') || valueField.includes('Comissao') || valueField.includes('Base')) {
                     formattedRowTotal = formatCurrency(rowTotal);
-                } else if (valueField.includes('Perc')) {
-                    formattedRowTotal = formatPercent(rowTotal);
                 } else {
                     formattedRowTotal = formatNumber(rowTotal);
                 }
@@ -1078,12 +1093,12 @@
             sortedCols.forEach(col => {
                 const colTotal = colTotals[col];
                 let formattedColTotal;
-                if (valueField === 'PercComissao') {
-                    formattedColTotal = formatPercent(colTotal);
+                
+                // Não mostrar total para PercComissao (não faz sentido somar percentuais)
+                if (valueField === 'PercComissao' || valueField.includes('Perc')) {
+                    formattedColTotal = '-';
                 } else if (valueField.includes('Valor') || valueField.includes('Comissao') || valueField.includes('Base')) {
                     formattedColTotal = formatCurrency(colTotal);
-                } else if (valueField.includes('Perc')) {
-                    formattedColTotal = formatPercent(colTotal);
                 } else {
                     formattedColTotal = formatNumber(colTotal);
                 }
@@ -1092,12 +1107,12 @@
             
             // Total geral (grand total)
             let formattedGrandTotal;
-            if (valueField === 'PercComissao') {
-                formattedGrandTotal = formatPercent(grandTotal);
+            
+            // Não mostrar total para PercComissao (não faz sentido somar percentuais)
+            if (valueField === 'PercComissao' || valueField.includes('Perc')) {
+                formattedGrandTotal = '-';
             } else if (valueField.includes('Valor') || valueField.includes('Comissao') || valueField.includes('Base')) {
                 formattedGrandTotal = formatCurrency(grandTotal);
-            } else if (valueField.includes('Perc')) {
-                formattedGrandTotal = formatPercent(grandTotal);
             } else {
                 formattedGrandTotal = formatNumber(grandTotal);
             }
