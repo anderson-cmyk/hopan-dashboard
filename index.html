@@ -1465,10 +1465,22 @@
                 'TipoPagamento': 'Tipo de Pagamento'
             };
             
+            // Mapear critérios para labels amigáveis
+            const criterioLabels = {
+                'all': 'Todos',
+                'classe_contact': 'Contact (< 90 dias)',
+                'classe_ativas1': 'Ativas 1 (91-180 dias)',
+                'classe_ativas2': 'Ativas 2 (> 181 dias)',
+                'tipo_parcial': 'Parcial (< R$ 3.000)',
+                'tipo_atualizacao': 'Atualização (R$ 3.001-8.000)',
+                'tipo_quitacao': 'Quitação (> R$ 8.000)'
+            };
+            
             // Criar CSV com cabeçalho dinâmico
             const rowLabel = fieldLabels[rowField] || rowField;
             const colLabel = fieldLabels[colField] || colField;
-            let csv = `Proposta,Cliente,Valor Pago,Valor Comissão,Data,Linha (${rowLabel}),Coluna (${colLabel})\n`;
+            const criterioTexto = criterioLabels[criterio] || criterio;
+            let csv = `Proposta,Cliente,Valor Pago,Valor Comissão,Data,Linha (${rowLabel}),Coluna (${colLabel}),Critério\n`;
             
             // Adicionar dados
             dataToExport.forEach(d => {
@@ -1480,7 +1492,7 @@
                 const linhaValor = d[rowField] || '';
                 const colunaValor = d[colField] || '';
                 
-                csv += `${proposta},"${cliente}",${valorPago},${valorComissao},${data},"${linhaValor}","${colunaValor}"\n`;
+                csv += `${proposta},"${cliente}",${valorPago},${valorComissao},${data},"${linhaValor}","${colunaValor}","${criterioTexto}"\n`;
             });
             
             // Download
