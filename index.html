@@ -988,10 +988,28 @@
             const sortedRows = Array.from(rowValues).sort((a, b) => customSort(a, b, rowField));
             const sortedCols = Array.from(colValues).sort((a, b) => customSort(a, b, colField));
 
+            // Calcular totais de linhas e colunas
+            const rowTotals = {};
+            const colTotals = {};
+            let grandTotal = 0;
+
+            sortedRows.forEach(row => {
+                let rowTotal = 0;
+                sortedCols.forEach(col => {
+                    const key = `${row}|||${col}`;
+                    const value = aggregated[key] || 0;
+                    rowTotal += value;
+                    colTotals[col] = (colTotals[col] || 0) + value;
+                    grandTotal += value;
+                });
+                rowTotals[row] = rowTotal;
+            });
+
             let tableHTML = '<table class="pivot-table"><thead><tr><th></th>';
             sortedCols.forEach(col => {
                 tableHTML += `<th>${col}</th>`;
             });
+            tableHTML += '<th style="background: var(--primary); color: white; font-weight: bold;">TOTAL LINHA</th>';
             tableHTML += '</tr></thead><tbody>';
 
             // Calcular total base considerando se há mês nas dimensões
@@ -1006,30 +1024,24 @@
                     // Formatação condicional baseada no campo
                     let formatted;
                     if (valueField === 'PercComissao') {
-                        // PercComissao sempre em percentual
                         formatted = formatPercent(value);
                     } else if (valueField.includes('Valor') || valueField.includes('Comissao') || valueField.includes('Base')) {
-                        // Campos monetários em moeda
                         formatted = formatCurrency(value);
                     } else if (valueField.includes('Perc')) {
-                        // Outros percentuais
                         formatted = formatPercent(value);
                     } else {
-                        // Números simples
                         formatted = formatNumber(value);
                     }
                     
                     // Calcular representatividade
                     let totalValorBase;
                     if (hasMesInDimensions) {
-                        // Se tem mês na dimensão, usar total do mês específico
                         const mes = rowField === 'MesAno' ? row : (colField === 'MesAno' ? col : null);
                         totalValorBase = mes ? getTotalValueByMonth(mes) : getTotalValueByMonth();
                     } else {
                         totalValorBase = getTotalValueByMonth();
                     }
                     
-                    // Calcular valor pago para esta célula
                     const cellData = data.filter(d => d[rowField] === row && d[colField] === col);
                     const valorPagoCelula = cellData.reduce((sum, d) => sum + d.ValorPago, 0);
                     const percent = totalValorBase > 0 ? (valorPagoCelula / totalValorBase) * 100 : 0;
@@ -1039,8 +1051,61 @@
                         <span class="cell-value">${formatted} <span class="cell-percent">(${percent.toFixed(1)}%)</span></span>
                     </td>`;
                 });
+                
+                // Total da linha
+                const rowTotal = rowTotals[row];
+                let formattedRowTotal;
+                if (valueField === 'PercComissao') {
+                    formattedRowTotal = formatPercent(rowTotal);
+                } else if (valueField.includes('Valor') || valueField.includes('Comissao') || valueField.includes('Base')) {
+                    formattedRowTotal = formatCurrency(rowTotal);
+                } else if (valueField.includes('Perc')) {
+                    formattedRowTotal = formatPercent(rowTotal);
+                } else {
+                    formattedRowTotal = formatNumber(rowTotal);
+                }
+                
+                tableHTML += `<td style="background: var(--bg-tertiary); font-weight: bold; border-left: 2px solid var(--primary);">
+                    <span class="cell-value">${formattedRowTotal}</span>
+                </td>`;
                 tableHTML += '</tr>';
             });
+
+            // Linha de totais de colunas
+            tableHTML += '<tr style="background: var(--primary); color: white; font-weight: bold;">';
+            tableHTML += '<th>TOTAL COLUNA</th>';
+            
+            sortedCols.forEach(col => {
+                const colTotal = colTotals[col];
+                let formattedColTotal;
+                if (valueField === 'PercComissao') {
+                    formattedColTotal = formatPercent(colTotal);
+                } else if (valueField.includes('Valor') || valueField.includes('Comissao') || valueField.includes('Base')) {
+                    formattedColTotal = formatCurrency(colTotal);
+                } else if (valueField.includes('Perc')) {
+                    formattedColTotal = formatPercent(colTotal);
+                } else {
+                    formattedColTotal = formatNumber(colTotal);
+                }
+                tableHTML += `<td>${formattedColTotal}</td>`;
+            });
+            
+            // Total geral (grand total)
+            let formattedGrandTotal;
+            if (valueField === 'PercComissao') {
+                formattedGrandTotal = formatPercent(grandTotal);
+            } else if (valueField.includes('Valor') || valueField.includes('Comissao') || valueField.includes('Base')) {
+                formattedGrandTotal = formatCurrency(grandTotal);
+            } else if (valueField.includes('Perc')) {
+                formattedGrandTotal = formatPercent(grandTotal);
+            } else {
+                formattedGrandTotal = formatNumber(grandTotal);
+            }
+            
+            tableHTML += `<td style="background: var(--success); font-size: 1.1em; border: 2px solid white;">
+                ${formattedGrandTotal}
+            </td>`;
+            tableHTML += '</tr>';
 
             tableHTML += '</tbody></table>';
             document.getElementById('pivotTableContainer').innerHTML = tableHTML;
